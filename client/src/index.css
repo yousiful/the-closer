@@ -3,6 +3,12 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ==========================================================================
+   THE CLOSER — Design System: Premium SaaS / Dark Intelligence
+   Philosophy: Deep Gotham night sky + burning boats gold. Every element
+   earns its place. The UI builds psychological commitment toward the close.
+   ========================================================================== */
+
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -27,90 +33,41 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
+  --color-gold: var(--gold);
+  --color-gold-dim: var(--gold-dim);
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body: 'Manrope', system-ui, sans-serif;
+  --font-mono: 'Fira Code', monospace;
 }
 
 :root {
-  --primary: var(--color-blue-700);
-  --primary-foreground: var(--color-blue-50);
-  --sidebar-primary: var(--color-blue-600);
-  --sidebar-primary-foreground: var(--color-blue-50);
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
-  --radius: 0.65rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.235 0.015 65);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.235 0.015 65);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.235 0.015 65);
-  --secondary: oklch(0.98 0.001 286.375);
-  --secondary-foreground: oklch(0.4 0.015 65);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.141 0.005 285.823);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.623 0.214 259.815);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.235 0.015 65);
-  --sidebar-accent: oklch(0.967 0.001 286.375);
-  --sidebar-accent-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.623 0.214 259.815);
-}
+  --radius: 0.5rem;
 
-.dark {
-  --primary: var(--color-blue-700);
-  --primary-foreground: var(--color-blue-50);
-  --sidebar-primary: var(--color-blue-500);
-  --sidebar-primary-foreground: var(--color-blue-50);
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.85 0.005 65);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.85 0.005 65);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.85 0.005 65);
-  --secondary: oklch(0.24 0.006 286.033);
-  --secondary-foreground: oklch(0.7 0.005 65);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground:  oklch(0.92 0.005 65);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.488 0.243 264.376);
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.85 0.005 65);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
-  --sidebar-accent-foreground:  oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.488 0.243 264.376);
+  /* Dark Intelligence Palette */
+  --background: oklch(0.09 0.015 265);
+  --foreground: oklch(0.94 0.005 265);
+  --card: oklch(0.12 0.018 265);
+  --card-foreground: oklch(0.94 0.005 265);
+  --popover: oklch(0.12 0.018 265);
+  --popover-foreground: oklch(0.94 0.005 265);
+
+  /* Gold/Amber — the fire, the close */
+  --primary: oklch(0.72 0.16 75);
+  --primary-foreground: oklch(0.09 0.015 265);
+  --gold: oklch(0.72 0.16 75);
+  --gold-dim: oklch(0.55 0.12 75);
+
+  --secondary: oklch(0.18 0.02 265);
+  --secondary-foreground: oklch(0.75 0.01 265);
+  --muted: oklch(0.16 0.015 265);
+  --muted-foreground: oklch(0.55 0.01 265);
+  --accent: oklch(0.20 0.025 265);
+  --accent-foreground: oklch(0.94 0.005 265);
+  --destructive: oklch(0.58 0.22 27);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(1 0 0 / 8%);
+  --input: oklch(1 0 0 / 10%);
+  --ring: oklch(0.72 0.16 75);
 }
 
 @layer base {
@@ -119,6 +76,10 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: 'Manrope', system-ui, sans-serif;
+  }
+  h1, h2, h3 {
+    font-family: 'Playfair Display', Georgia, serif;
   }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
@@ -134,24 +95,11 @@
 }
 
 @layer components {
-  /**
-   * Custom container utility that centers content and adds responsive padding.
-   *
-   * This overrides Tailwind's default container behavior to:
-   * - Auto-center content (mx-auto)
-   * - Add responsive horizontal padding
-   * - Set max-width for large screens
-   *
-   * Usage: <div className="container">...</div>
-   *
-   * For custom widths, use max-w-* utilities directly:
-   * <div className="max-w-6xl mx-auto px-4">...</div>
-   */
   .container {
     width: 100%;
     margin-left: auto;
     margin-right: auto;
-    padding-left: 1rem; /* 16px - mobile padding */
+    padding-left: 1rem;
     padding-right: 1rem;
   }
 
@@ -162,16 +110,127 @@
 
   @media (min-width: 640px) {
     .container {
-      padding-left: 1.5rem; /* 24px - tablet padding */
+      padding-left: 1.5rem;
       padding-right: 1.5rem;
     }
   }
 
   @media (min-width: 1024px) {
     .container {
-      padding-left: 2rem; /* 32px - desktop padding */
+      padding-left: 2rem;
       padding-right: 2rem;
-      max-width: 1280px; /* Standard content width */
+      max-width: 1280px;
     }
+  }
+
+  /* Gold gradient text */
+  .text-gold-gradient {
+    background: linear-gradient(135deg, #D4A017 0%, #F59E0B 50%, #D4A017 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Gold glow effect */
+  .gold-glow {
+    box-shadow: 0 0 20px oklch(0.72 0.16 75 / 30%), 0 0 40px oklch(0.72 0.16 75 / 15%);
+  }
+
+  .gold-glow-text {
+    text-shadow: 0 0 20px oklch(0.72 0.16 75 / 60%);
+  }
+
+  /* Step card with gradient border */
+  .step-card-active {
+    background: linear-gradient(oklch(0.12 0.018 265), oklch(0.12 0.018 265)) padding-box,
+                linear-gradient(135deg, oklch(0.72 0.16 75), transparent 60%) border-box;
+    border: 1px solid transparent;
+  }
+
+  .step-card-inactive {
+    border: 1px solid oklch(1 0 0 / 8%);
+    background: oklch(0.12 0.018 265);
+  }
+
+  /* Typewriter cursor */
+  .typewriter-cursor::after {
+    content: '|';
+    animation: blink 1s step-end infinite;
+    color: oklch(0.72 0.16 75);
+    margin-left: 2px;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  /* Ember particle animation */
+  @keyframes float-up {
+    0% { transform: translateY(0) translateX(0) scale(1); opacity: 0.8; }
+    50% { transform: translateY(-60px) translateX(10px) scale(0.8); opacity: 0.5; }
+    100% { transform: translateY(-120px) translateX(-5px) scale(0.3); opacity: 0; }
+  }
+
+  .ember {
+    animation: float-up linear infinite;
+  }
+
+  /* Step enter animation */
+  @keyframes step-enter {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .step-enter {
+    animation: step-enter 0.35s ease-out forwards;
+  }
+
+  /* Progress connector fill */
+  @keyframes connector-fill {
+    from { height: 0%; }
+    to { height: 100%; }
+  }
+
+  .connector-fill {
+    animation: connector-fill 0.5s ease-out forwards;
+  }
+
+  /* Pulse ring for active step */
+  @keyframes pulse-ring {
+    0% { box-shadow: 0 0 0 0 oklch(0.72 0.16 75 / 40%); }
+    70% { box-shadow: 0 0 0 8px oklch(0.72 0.16 75 / 0%); }
+    100% { box-shadow: 0 0 0 0 oklch(0.72 0.16 75 / 0%); }
+  }
+
+  .pulse-ring {
+    animation: pulse-ring 2s ease-out infinite;
+  }
+
+  /* Shimmer effect for loading */
+  @keyframes shimmer {
+    0% { background-position: -200% center; }
+    100% { background-position: 200% center; }
+  }
+
+  .shimmer {
+    background: linear-gradient(90deg, oklch(0.16 0.015 265) 25%, oklch(0.22 0.02 265) 50%, oklch(0.16 0.015 265) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: oklch(0.09 0.015 265);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.25 0.02 265);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.72 0.16 75 / 50%);
   }
 }
