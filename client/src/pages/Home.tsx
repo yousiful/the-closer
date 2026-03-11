@@ -1,8 +1,8 @@
 // =============================================================================
-// THE CLOSER — Main Page
+// THE CLOSER — Main Page (GHL Native Outbound Caller Edition)
 // Design: Premium SaaS / Dark Intelligence
-// Gotham night sky + burning boats gold. 4-step wizard that builds
-// psychological commitment toward the close.
+// Generates TCPA-compliant GHL Voice AI outbound caller prompts with the
+// Batman "Burn the Boats" closing methodology.
 // =============================================================================
 
 import { useState, useCallback } from "react";
@@ -13,11 +13,13 @@ import StepIndicator from "@/components/StepIndicator";
 import BatmanQuote from "@/components/BatmanQuote";
 import { useTypewriter } from "@/hooks/useTypewriter";
 import {
-  generateCloserPrompt,
+  generateGHLPrompt,
   TONE_OPTIONS,
+  CALL_PURPOSE_OPTIONS,
   SPECIALTY_OPTIONS,
   type BusinessInfo,
   type CloserPersonality,
+  type GHLPromptPackage,
 } from "@/lib/generatePrompt";
 import {
   Copy,
@@ -30,13 +32,15 @@ import {
   Zap,
   FileText,
   RotateCcw,
+  ShieldCheck,
+  Phone,
 } from "lucide-react";
 
 const WIZARD_STEPS = [
   { id: 1, label: "Business Info", sublabel: "Tell us about your offer" },
-  { id: 2, label: "Edit & Refine", sublabel: "Fill in missing details" },
+  { id: 2, label: "Edit & Refine", sublabel: "Dial in the details" },
   { id: 3, label: "Closer Skills", sublabel: "Customize your agent" },
-  { id: 4, label: "Your Prompt", sublabel: "Ready to deploy" },
+  { id: 4, label: "GHL Prompt", sublabel: "Ready to deploy" },
 ];
 
 const DEFAULT_BUSINESS: BusinessInfo = {
@@ -47,10 +51,12 @@ const DEFAULT_BUSINESS: BusinessInfo = {
   mainBenefit: "",
   price: "",
   commonObjections: "",
+  callPurpose: "book_appointment",
+  bookingCalendar: true,
 };
 
 const DEFAULT_PERSONALITY: CloserPersonality = {
-  name: "The Closer",
+  name: "Alex",
   tone: "confident",
   specialties: [],
   closingStyle: "batman",
@@ -65,14 +71,15 @@ export default function Home() {
   const [urlInput, setUrlInput] = useState("");
   const [textInput, setTextInput] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedPrompt, setGeneratedPrompt] = useState<ReturnType<typeof generateCloserPrompt> | null>(null);
+  const [generatedPrompt, setGeneratedPrompt] = useState<GHLPromptPackage | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [promptStarted, setPromptStarted] = useState(false);
+  const [activeTab, setActiveTab] = useState<"main" | "greeting" | "objections" | "closing" | "compliance">("greeting");
 
   const { displayed: typewriterText, done: typewriterDone } = useTypewriter(
-    generatedPrompt?.systemPrompt ?? "",
-    12,
-    promptStarted
+    generatedPrompt?.mainPrompt ?? "",
+    10,
+    promptStarted && activeTab === "main"
   );
 
   const completeStep = (step: number) => {
@@ -82,7 +89,7 @@ export default function Home() {
 
   const handleStep1Next = () => {
     if (!business.businessName.trim()) {
-      toast.error("Please enter your business name to continue.");
+      toast.error("Please enter your business name.");
       return;
     }
     if (!business.productService.trim()) {
@@ -110,13 +117,15 @@ export default function Home() {
       return;
     }
     completeStep(3);
-    // Generate the prompt
     setIsGenerating(true);
     setTimeout(() => {
-      const result = generateCloserPrompt(business, personality);
+      const result = generateGHLPrompt(business, personality);
       setGeneratedPrompt(result);
       setIsGenerating(false);
-      setTimeout(() => setPromptStarted(true), 300);
+      setTimeout(() => {
+        setPromptStarted(true);
+        setActiveTab("greeting");
+      }, 300);
     }, 1800);
   };
 
@@ -125,7 +134,7 @@ export default function Home() {
       await navigator.clipboard.writeText(text);
       setCopied(key);
       toast.success("Copied to clipboard!");
-      setTimeout(() => setCopied(null), 2000);
+      setTimeout(() => setCopied(null), 2500);
     } catch {
       toast.error("Failed to copy. Please select and copy manually.");
     }
@@ -139,14 +148,7 @@ export default function Home() {
     setGeneratedPrompt(null);
     setPromptStarted(false);
     setIsGenerating(false);
-  };
-
-  const handleUrlScrape = () => {
-    if (!urlInput.trim()) {
-      toast.error("Please enter a URL first.");
-      return;
-    }
-    toast.info("URL scraping coming soon — use Enter Manually for now.");
+    setActiveTab("greeting");
   };
 
   const handleTextImport = () => {
@@ -154,18 +156,17 @@ export default function Home() {
       toast.error("Please paste your business description.");
       return;
     }
-    // Parse text into fields (simple heuristic)
     const lines = textInput.split("\n").filter(Boolean);
     setBusiness((prev) => ({
       ...prev,
       businessName: prev.businessName || lines[0] || "",
-      productService: prev.productService || lines.slice(1).join(" ").slice(0, 200) || "",
+      productService: prev.productService || lines.slice(1).join(" ").slice(0, 300) || "",
     }));
     setInputMethod("manual");
     toast.success("Text imported! Review and fill in any missing details.");
   };
 
-  const updateBusiness = (field: keyof BusinessInfo, value: string) => {
+  const updateBusiness = (field: keyof BusinessInfo, value: string | boolean) => {
     setBusiness((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -179,16 +180,11 @@ export default function Home() {
   };
 
   return (
-    <div
-      className="min-h-screen relative overflow-x-hidden"
-      style={{ background: "oklch(0.09 0.015 265)" }}
-    >
+    <div className="min-h-screen relative overflow-x-hidden" style={{ background: "oklch(0.09 0.015 265)" }}>
       {/* Background */}
       <div
         className="fixed inset-0 z-0 bg-cover bg-center opacity-20"
-        style={{
-          backgroundImage: `url(https://d2xsxph8kpxj0f.cloudfront.net/310519663145844820/D8d6P6JxN75EWVX5ZmECZm/closer-hero-bg-h8WFDLSCw2Ru2GDUKLVrky.webp)`,
-        }}
+        style={{ backgroundImage: `url(https://d2xsxph8kpxj0f.cloudfront.net/310519663145844820/D8d6P6JxN75EWVX5ZmECZm/closer-hero-bg-h8WFDLSCw2Ru2GDUKLVrky.webp)` }}
       />
       <EmberField />
 
@@ -205,13 +201,13 @@ export default function Home() {
               <h1 className="text-xl font-bold text-white" style={{ fontFamily: "'Playfair Display', serif" }}>
                 The <span className="text-gold-gradient">Closer</span>
               </h1>
-              <p className="text-xs text-white/40 -mt-0.5">AI Sales Agent Builder</p>
+              <p className="text-xs text-white/40 -mt-0.5">GHL Outbound AI Caller Builder</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <span className="hidden sm:flex items-center gap-1.5 text-xs text-white/30 border border-white/10 rounded-full px-3 py-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#D4A017] animate-pulse" />
-              Burn the Boats Method
+              <Phone size={10} className="text-[#D4A017]" />
+              GHL Voice AI · TCPA Compliant
             </span>
             {completedSteps.length > 0 && (
               <button
@@ -226,43 +222,39 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Main content */}
+      {/* Main */}
       <main className="relative z-10 max-w-6xl mx-auto px-6 py-10">
-        {/* Hero text */}
+        {/* Hero */}
         <div className="text-center mb-12">
           <p className="text-xs font-semibold text-[#D4A017] uppercase tracking-widest mb-3">
-            ✦ No-Prompt Closer Creator ✦
+            ✦ GHL Native Outbound AI Caller ✦
           </p>
           <h2
             className="text-4xl sm:text-5xl font-bold text-white mb-4 leading-tight"
             style={{ fontFamily: "'Playfair Display', serif" }}
           >
-            Build Your AI{" "}
-            <span className="text-gold-gradient">Sales Closer</span>
+            Build Your GHL{" "}
+            <span className="text-gold-gradient">AI Closer</span>
             <br />
             <span className="text-white/60 text-3xl sm:text-4xl italic">in 4 minutes</span>
           </h2>
           <p className="text-white/50 max-w-xl mx-auto text-sm leading-relaxed">
-            Drop your business info. Get a battle-tested AI closer powered by the{" "}
+            Generate a TCPA-compliant, GHL Voice AI–ready outbound caller prompt powered by the{" "}
             <span className="text-[#D4A017]/80">Burn the Boats</span> closing methodology.
-            No rope. No safety net. Just closes.
+            Drop it straight into GHL Advanced Mode and go.
           </p>
         </div>
 
         {/* Wizard layout */}
         <div className="flex gap-8 items-start">
-          {/* Step rail — desktop only */}
+          {/* Step rail — desktop */}
           <div className="hidden lg:block w-52 flex-shrink-0 sticky top-8">
-            <StepIndicator
-              steps={WIZARD_STEPS}
-              currentStep={currentStep}
-              completedSteps={completedSteps}
-            />
+            <StepIndicator steps={WIZARD_STEPS} currentStep={currentStep} completedSteps={completedSteps} />
           </div>
 
           {/* Step content */}
           <div className="flex-1 min-w-0">
-            {/* Mobile step indicator */}
+            {/* Mobile step pills */}
             <div className="flex lg:hidden items-center gap-2 mb-6 overflow-x-auto pb-2">
               {WIZARD_STEPS.map((step) => (
                 <div
@@ -276,29 +268,19 @@ export default function Home() {
                       : "bg-white/5 text-white/30"
                   )}
                 >
-                  {completedSteps.includes(step.id) ? (
-                    <Check size={10} strokeWidth={3} />
-                  ) : (
-                    <span>{step.id}</span>
-                  )}
+                  {completedSteps.includes(step.id) ? <Check size={10} strokeWidth={3} /> : <span>{step.id}</span>}
                   {step.label}
                 </div>
               ))}
             </div>
 
             {/* ================================================================
-                STEP 1 — Business Info Input
+                STEP 1 — Business Info
                 ================================================================ */}
             {currentStep === 1 && (
               <div className="step-enter">
-                <StepHeader
-                  icon={<Building2 size={20} />}
-                  step={1}
-                  title="Tell us about your business"
-                  subtitle="Drop a URL, paste your pitch, or enter manually"
-                />
+                <StepHeader icon={<Building2 size={20} />} step={1} title="Tell us about your business" subtitle="Drop a URL, paste your pitch, or enter manually" />
 
-                {/* Input method selector */}
                 <div className="flex gap-2 mb-6">
                   {(["url", "text", "manual"] as const).map((method) => (
                     <button
@@ -311,12 +293,11 @@ export default function Home() {
                           : "bg-white/5 text-white/50 border-white/10 hover:border-white/20 hover:text-white/70"
                       )}
                     >
-                      {method === "url" ? "🔗 Scrape a URL" : method === "text" ? "📋 Paste Text" : "✏️ Enter Manually"}
+                      {method === "url" ? "🔗 Scrape URL" : method === "text" ? "📋 Paste Text" : "✏️ Enter Manually"}
                     </button>
                   ))}
                 </div>
 
-                {/* URL input */}
                 {inputMethod === "url" && (
                   <div className="step-card-inactive rounded-xl p-6 mb-6">
                     <label className="block text-sm text-white/60 mb-2">Your website URL</label>
@@ -329,62 +310,39 @@ export default function Home() {
                         className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-[#D4A017]/50 transition-colors"
                       />
                       <button
-                        onClick={handleUrlScrape}
+                        onClick={() => toast.info("URL scraping coming soon — use Enter Manually for now.")}
                         className="px-5 py-3 bg-[#D4A017] text-[#0A0B14] rounded-lg text-sm font-semibold hover:bg-[#F59E0B] transition-colors"
                       >
                         Scrape
                       </button>
                     </div>
-                    <p className="text-xs text-white/30 mt-2">
-                      Note: May not work with sites that block scraping.
-                    </p>
-                    <button
-                      onClick={() => setInputMethod("manual")}
-                      className="mt-3 text-xs text-[#D4A017]/60 hover:text-[#D4A017] transition-colors"
-                    >
-                      Or enter manually instead →
+                    <button onClick={() => setInputMethod("manual")} className="mt-3 text-xs text-[#D4A017]/60 hover:text-[#D4A017] transition-colors">
+                      Or enter manually →
                     </button>
                   </div>
                 )}
 
-                {/* Text paste */}
                 {inputMethod === "text" && (
                   <div className="step-card-inactive rounded-xl p-6 mb-6">
-                    <label className="block text-sm text-white/60 mb-2">
-                      Paste your business description, sales script, or pitch deck
-                    </label>
+                    <label className="block text-sm text-white/60 mb-2">Paste your business description, pitch, or offer</label>
                     <textarea
                       value={textInput}
                       onChange={(e) => setTextInput(e.target.value)}
-                      placeholder="Paste anything — your about page, pitch, offer description..."
+                      placeholder="Paste anything — your about page, pitch deck, offer description..."
                       rows={6}
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-[#D4A017]/50 transition-colors resize-none"
                     />
-                    <button
-                      onClick={handleTextImport}
-                      className="mt-3 px-5 py-2.5 bg-[#D4A017] text-[#0A0B14] rounded-lg text-sm font-semibold hover:bg-[#F59E0B] transition-colors"
-                    >
+                    <button onClick={handleTextImport} className="mt-3 px-5 py-2.5 bg-[#D4A017] text-[#0A0B14] rounded-lg text-sm font-semibold hover:bg-[#F59E0B] transition-colors">
                       Import & Continue
                     </button>
                   </div>
                 )}
 
-                {/* Manual entry */}
                 {inputMethod === "manual" && (
                   <div className="step-card-active rounded-xl p-6 mb-6 space-y-5">
                     <div className="grid sm:grid-cols-2 gap-5">
-                      <FormField
-                        label="Business Name *"
-                        placeholder="e.g. Kenji CRM"
-                        value={business.businessName}
-                        onChange={(v) => updateBusiness("businessName", v)}
-                      />
-                      <FormField
-                        label="Industry *"
-                        placeholder="e.g. CRM Software, Real Estate, Coaching"
-                        value={business.industry}
-                        onChange={(v) => updateBusiness("industry", v)}
-                      />
+                      <FormField label="Business Name *" placeholder="e.g. Kenji CRM" value={business.businessName} onChange={(v) => updateBusiness("businessName", v)} />
+                      <FormField label="Industry *" placeholder="e.g. CRM Software, Real Estate, Coaching" value={business.industry} onChange={(v) => updateBusiness("industry", v)} />
                     </div>
                     <FormField
                       label="What You Sell *"
@@ -399,6 +357,35 @@ export default function Home() {
                       value={business.price}
                       onChange={(v) => updateBusiness("price", v)}
                     />
+
+                    {/* Call Purpose */}
+                    <div>
+                      <label className="block text-xs font-semibold text-white/50 uppercase tracking-wide mb-3">
+                        What is the goal of this outbound call? *
+                      </label>
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        {CALL_PURPOSE_OPTIONS.map((opt) => (
+                          <button
+                            key={opt.value}
+                            onClick={() => updateBusiness("callPurpose", opt.value)}
+                            className={cn(
+                              "text-left p-4 rounded-lg border transition-all",
+                              business.callPurpose === opt.value
+                                ? "border-[#D4A017] bg-[#D4A017]/10"
+                                : "border-white/10 bg-white/3 hover:border-white/20"
+                            )}
+                          >
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-lg">{opt.icon}</span>
+                              <p className={cn("text-sm font-semibold", business.callPurpose === opt.value ? "text-[#D4A017]" : "text-white/70")}>
+                                {opt.label}
+                              </p>
+                            </div>
+                            <p className="text-xs text-white/35">{opt.description}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -407,16 +394,11 @@ export default function Home() {
             )}
 
             {/* ================================================================
-                STEP 2 — Edit & Refine
+                STEP 2 — Refine
                 ================================================================ */}
             {currentStep === 2 && (
               <div className="step-enter">
-                <StepHeader
-                  icon={<Sliders size={20} />}
-                  step={2}
-                  title="Refine your offer details"
-                  subtitle="The more specific you are, the sharper your closer"
-                />
+                <StepHeader icon={<Sliders size={20} />} step={2} title="Dial in the details" subtitle="The sharper your inputs, the sharper your closer" />
 
                 <div className="step-card-active rounded-xl p-6 mb-6 space-y-5">
                   <FormField
@@ -442,12 +424,22 @@ export default function Home() {
                   />
                 </div>
 
-                {/* Batman methodology teaser */}
-                <div className="mb-6">
-                  <BatmanQuote />
+                {/* Compliance notice */}
+                <div className="border border-[#D4A017]/20 rounded-xl p-4 bg-[#D4A017]/5 mb-6">
+                  <div className="flex gap-3">
+                    <ShieldCheck size={18} className="text-[#D4A017] flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-bold text-[#D4A017] mb-1">TCPA Compliance Built In</p>
+                      <p className="text-xs text-white/50 leading-relaxed">
+                        Your generated prompt will include: business identification at call start, verbal opt-out mechanism, DNC handling, and GHL's 10AM–6PM call window compliance language. All required by FCC/TCPA for AI outbound calls.
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex gap-3">
+                <BatmanQuote />
+
+                <div className="flex gap-3 mt-6">
                   <BackButton onClick={() => setCurrentStep(1)} />
                   <NextButton onClick={handleStep2Next} label="Next: Closer Skills" />
                 </div>
@@ -455,29 +447,22 @@ export default function Home() {
             )}
 
             {/* ================================================================
-                STEP 3 — Closer Personality & Skills
+                STEP 3 — Closer Skills
                 ================================================================ */}
             {currentStep === 3 && (
               <div className="step-enter">
-                <StepHeader
-                  icon={<Zap size={20} />}
-                  step={3}
-                  title="Give your closer its edge"
-                  subtitle="Customize the personality and skills of your AI agent"
-                />
+                <StepHeader icon={<Zap size={20} />} step={3} title="Give your closer its edge" subtitle="Customize the voice agent's personality and skills" />
 
                 <div className="space-y-6 mb-6">
-                  {/* Name */}
                   <div className="step-card-active rounded-xl p-6">
                     <FormField
-                      label="Closer Name"
-                      placeholder="e.g. Alex, The Closer, Max"
+                      label="Agent Name (what the AI calls itself)"
+                      placeholder="e.g. Alex, Jordan, The Closer"
                       value={personality.name}
                       onChange={(v) => setPersonality((p) => ({ ...p, name: v }))}
                     />
                   </div>
 
-                  {/* Tone */}
                   <div className="step-card-inactive rounded-xl p-6">
                     <p className="text-sm font-semibold text-white/80 mb-4">Closing Tone</p>
                     <div className="grid sm:grid-cols-2 gap-3">
@@ -501,10 +486,9 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {/* Specialties */}
                   <div className="step-card-inactive rounded-xl p-6">
                     <p className="text-sm font-semibold text-white/80 mb-1">Closer Specialties</p>
-                    <p className="text-xs text-white/40 mb-4">Select all that apply to your sales process</p>
+                    <p className="text-xs text-white/40 mb-4">Select all that apply</p>
                     <div className="flex flex-wrap gap-2">
                       {SPECIALTY_OPTIONS.map((s) => (
                         <button
@@ -523,130 +507,222 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {/* Batman quote compact */}
                   <BatmanQuote compact />
                 </div>
 
                 <div className="flex gap-3">
                   <BackButton onClick={() => setCurrentStep(2)} />
-                  <NextButton
-                    onClick={handleStep3Next}
-                    label="Generate My Closer"
-                    icon={<Sparkles size={16} />}
-                    highlight
-                  />
+                  <NextButton onClick={handleStep3Next} label="Generate GHL Prompt" icon={<Sparkles size={16} />} highlight />
                 </div>
               </div>
             )}
 
             {/* ================================================================
-                STEP 4 — Generated Prompt
+                STEP 4 — Generated GHL Prompt
                 ================================================================ */}
             {currentStep === 4 && (
               <div className="step-enter">
-                <StepHeader
-                  icon={<FileText size={20} />}
-                  step={4}
-                  title="Your closer is ready"
-                  subtitle="Copy and deploy into any AI platform — GHL, ChatGPT, Claude, Voiceflow"
-                />
+                <StepHeader icon={<FileText size={20} />} step={4} title="Your GHL closer is ready" subtitle="Copy each section into the corresponding GHL Voice AI field" />
 
                 {isGenerating ? (
                   <div className="step-card-inactive rounded-xl p-12 flex flex-col items-center justify-center gap-4">
-                    <div className="relative">
-                      <img
-                        src="https://d2xsxph8kpxj0f.cloudfront.net/310519663145844820/D8d6P6JxN75EWVX5ZmECZm/closer-fire-logo-FpAzV6cKZvopBi3MjgPhGs.png"
-                        alt=""
-                        className="w-16 h-16 object-contain animate-pulse"
-                      />
-                    </div>
-                    <p className="text-[#D4A017] font-semibold">Forging your closer...</p>
+                    <img
+                      src="https://d2xsxph8kpxj0f.cloudfront.net/310519663145844820/D8d6P6JxN75EWVX5ZmECZm/closer-fire-logo-FpAzV6cKZvopBi3MjgPhGs.png"
+                      alt=""
+                      className="w-16 h-16 object-contain animate-pulse"
+                    />
+                    <p className="text-[#D4A017] font-semibold">Forging your GHL closer...</p>
                     <p className="text-white/40 text-sm text-center max-w-xs">
-                      Embedding the Burn the Boats methodology into your AI agent
+                      Embedding Burn the Boats + TCPA compliance into your Voice AI prompt
                     </p>
                     <div className="flex gap-1 mt-2">
                       {[0, 1, 2].map((i) => (
-                        <div
-                          key={i}
-                          className="w-2 h-2 rounded-full bg-[#D4A017] animate-bounce"
-                          style={{ animationDelay: `${i * 0.15}s` }}
-                        />
+                        <div key={i} className="w-2 h-2 rounded-full bg-[#D4A017] animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
                       ))}
                     </div>
                   </div>
                 ) : generatedPrompt ? (
                   <div className="space-y-4">
-                    {/* System Prompt */}
-                    <PromptSection
-                      title="System Prompt"
-                      subtitle="Paste this into your AI platform's system/instructions field"
-                      badge="Main Prompt"
-                      badgeColor="gold"
-                      content={typewriterDone ? generatedPrompt.systemPrompt : typewriterText}
-                      isStreaming={!typewriterDone}
-                      onCopy={() => handleCopy(generatedPrompt.systemPrompt, "system")}
-                      copied={copied === "system"}
-                    />
-
-                    {/* Sample Opener */}
-                    <PromptSection
-                      title="Sample Opening Line"
-                      subtitle="How your closer starts the conversation"
-                      badge="Opener"
-                      badgeColor="blue"
-                      content={generatedPrompt.sampleOpener}
-                      onCopy={() => handleCopy(generatedPrompt.sampleOpener, "opener")}
-                      copied={copied === "opener"}
-                    />
-
-                    {/* Objection Handlers */}
-                    <div className="step-card-inactive rounded-xl p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-white/10 text-white/60">
-                              Objection Handlers
-                            </span>
-                          </div>
-                          <p className="text-sm text-white/40">5 battle-tested responses using the Burn the Boats method</p>
-                        </div>
+                    {/* Tab navigation */}
+                    <div className="flex gap-1 bg-white/5 p-1 rounded-xl overflow-x-auto">
+                      {[
+                        { key: "greeting", label: "Initial Greeting", icon: "👋" },
+                        { key: "main", label: "Main Prompt", icon: "🧠" },
+                        { key: "objections", label: "Objection Handlers", icon: "🔥" },
+                        { key: "closing", label: "Closing Script", icon: "🎯" },
+                        { key: "compliance", label: "Compliance", icon: "✅" },
+                      ].map((tab) => (
                         <button
-                          onClick={() => handleCopy(generatedPrompt.objectionHandlers.join("\n\n"), "objections")}
-                          className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors border border-white/10 rounded-lg px-3 py-1.5 hover:border-white/20"
+                          key={tab.key}
+                          onClick={() => setActiveTab(tab.key as typeof activeTab)}
+                          className={cn(
+                            "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap flex-shrink-0",
+                            activeTab === tab.key
+                              ? "bg-[#D4A017] text-[#0A0B14]"
+                              : "text-white/50 hover:text-white/70"
+                          )}
                         >
-                          {copied === "objections" ? <Check size={12} /> : <Copy size={12} />}
-                          Copy All
+                          <span>{tab.icon}</span>
+                          {tab.label}
                         </button>
-                      </div>
-                      <div className="space-y-3">
-                        {generatedPrompt.objectionHandlers.map((handler, i) => (
-                          <div key={i} className="bg-white/3 rounded-lg p-3 border border-white/5">
-                            <p className="text-xs text-white/60 font-mono leading-relaxed">{handler}</p>
-                          </div>
-                        ))}
-                      </div>
+                      ))}
                     </div>
 
-                    {/* Closing Script */}
-                    <PromptSection
-                      title="Closing Script"
-                      subtitle="The final push — the leap without the rope"
-                      badge="The Close"
-                      badgeColor="gold"
-                      content={generatedPrompt.closingScript}
-                      onCopy={() => handleCopy(generatedPrompt.closingScript, "closing")}
-                      copied={copied === "closing"}
-                    />
+                    {/* GREETING TAB */}
+                    {activeTab === "greeting" && (
+                      <div className="step-enter">
+                        <div className="step-card-inactive rounded-xl p-5 mb-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">GHL Field</span>
+                            <p className="text-sm font-semibold text-white/80">Agent Details → Initial Greeting Message</p>
+                          </div>
+                          <p className="text-xs text-white/40 mb-4">This is the FIRST thing the AI says when the call connects. Paste this into the "Initial Greeting Message" field — NOT the main prompt.</p>
+                          <PromptBox
+                            content={generatedPrompt.initialGreeting}
+                            onCopy={() => handleCopy(generatedPrompt.initialGreeting, "greeting")}
+                            copied={copied === "greeting"}
+                          />
+                        </div>
+                        <div className="bg-[#D4A017]/8 border border-[#D4A017]/20 rounded-lg p-4">
+                          <p className="text-xs text-[#D4A017] font-semibold mb-2">💡 GHL Setup Tip</p>
+                          <p className="text-xs text-white/50 leading-relaxed">
+                            In GHL: <strong className="text-white/70">AI Agents → Voice AI → Create Agent → Agent Details tab</strong> → paste into "Initial Greeting Message". This fires before your main prompt kicks in.
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
-                    {/* Copy All button */}
+                    {/* MAIN PROMPT TAB */}
+                    {activeTab === "main" && (
+                      <div className="step-enter">
+                        <div className="step-card-inactive rounded-xl p-5 mb-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#D4A017]/20 text-[#D4A017]">Main Prompt</span>
+                            <p className="text-sm font-semibold text-white/80">Agent Goals → Advanced Mode → Prompt</p>
+                          </div>
+                          <p className="text-xs text-white/40 mb-4">The full system prompt. Paste into GHL's Advanced Mode prompt field. Contains: Role, Compliance Opening, Script Flow, Objection Handling, and Guardrails.</p>
+                          <PromptBox
+                            content={typewriterDone ? generatedPrompt.mainPrompt : typewriterText}
+                            isStreaming={!typewriterDone}
+                            onCopy={() => handleCopy(generatedPrompt.mainPrompt, "main")}
+                            copied={copied === "main"}
+                            tall
+                          />
+                        </div>
+                        <div className="bg-[#D4A017]/8 border border-[#D4A017]/20 rounded-lg p-4">
+                          <p className="text-xs text-[#D4A017] font-semibold mb-2">💡 GHL Setup Tip</p>
+                          <p className="text-xs text-white/50 leading-relaxed">
+                            In GHL: <strong className="text-white/70">Agent Goals tab → click "Switch to Advanced Mode" → paste into the Prompt field</strong>. Use the "Evaluate" button to test before going live.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* OBJECTIONS TAB */}
+                    {activeTab === "objections" && (
+                      <div className="step-enter">
+                        <div className="step-card-inactive rounded-xl p-5 mb-3">
+                          <div className="flex items-center justify-between mb-4">
+                            <div>
+                              <p className="text-sm font-semibold text-white/80">Objection Handler Reference Card</p>
+                              <p className="text-xs text-white/40 mt-0.5">Already embedded in your main prompt. Use this as a training reference.</p>
+                            </div>
+                            <button
+                              onClick={() => handleCopy(generatedPrompt.objectionHandlers.join("\n\n"), "objections")}
+                              className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors border border-white/10 rounded-lg px-3 py-1.5 hover:border-white/20 flex-shrink-0"
+                            >
+                              {copied === "objections" ? <Check size={12} /> : <Copy size={12} />}
+                              Copy All
+                            </button>
+                          </div>
+                          <div className="space-y-3">
+                            {generatedPrompt.objectionHandlers.map((handler: string, i: number) => (
+                              <div key={i} className="bg-white/3 rounded-lg p-3 border border-white/5">
+                                <p className="text-xs text-white/60 font-mono leading-relaxed">{handler}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <BatmanQuote compact />
+                      </div>
+                    )}
+
+                    {/* CLOSING SCRIPT TAB */}
+                    {activeTab === "closing" && (
+                      <div className="step-enter">
+                        <div className="step-card-inactive rounded-xl p-5 mb-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#D4A017]/20 text-[#D4A017]">The Close</span>
+                            <p className="text-sm font-semibold text-white/80">The Burn the Boats Closing Sequence</p>
+                          </div>
+                          <p className="text-xs text-white/40 mb-4">Already embedded in the main prompt. This is the standalone reference for training your human team too.</p>
+                          <PromptBox
+                            content={generatedPrompt.closingScript}
+                            onCopy={() => handleCopy(generatedPrompt.closingScript, "closing")}
+                            copied={copied === "closing"}
+                          />
+                        </div>
+                        <div className="relative overflow-hidden rounded-xl border border-[#D4A017]/25 bg-gradient-to-br from-[#D4A017]/8 to-transparent p-5">
+                          <div
+                            className="absolute inset-0 opacity-10 bg-cover bg-center"
+                            style={{ backgroundImage: `url(https://d2xsxph8kpxj0f.cloudfront.net/310519663145844820/D8d6P6JxN75EWVX5ZmECZm/closer-batman-well-96TPTZkZN7hDL6JEJUqWdS.webp)` }}
+                          />
+                          <div className="relative z-10">
+                            <p className="text-xs font-bold text-[#D4A017] uppercase tracking-widest mb-2">🦇 The Golden Rule</p>
+                            <p className="text-sm text-white/70 italic leading-relaxed">
+                              "After asking the closing question — silence. The next person who speaks, loses. Train your AI to wait. Train yourself to wait."
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* COMPLIANCE TAB */}
+                    {activeTab === "compliance" && (
+                      <div className="step-enter">
+                        <div className="step-card-inactive rounded-xl p-5 mb-4">
+                          <p className="text-sm font-semibold text-white/80 mb-4 flex items-center gap-2">
+                            <ShieldCheck size={16} className="text-[#D4A017]" />
+                            TCPA / FCC Compliance Checklist
+                          </p>
+                          <div className="space-y-2">
+                            {generatedPrompt.complianceChecklist.map((item: string, i: number) => (
+                              <div key={i} className="flex gap-3 p-3 bg-white/3 rounded-lg border border-white/5">
+                                <p className="text-xs text-white/65 leading-relaxed">{item}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Setup notes */}
+                        <div className="step-card-inactive rounded-xl p-5">
+                          <p className="text-sm font-semibold text-white/80 mb-4 flex items-center gap-2">
+                            <Zap size={16} className="text-[#D4A017]" />
+                            GHL Setup Notes
+                          </p>
+                          <div className="space-y-2">
+                            {generatedPrompt.setupNotes.map((note: string, i: number) => (
+                              <div key={i} className="flex gap-3 p-3 bg-white/3 rounded-lg border border-white/5">
+                                <span className="text-[#D4A017] text-xs font-bold flex-shrink-0 mt-0.5">{i + 1}.</span>
+                                <p className="text-xs text-white/55 leading-relaxed">{note}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Copy all button */}
                     <button
                       onClick={() =>
                         handleCopy(
                           [
-                            "=== SYSTEM PROMPT ===\n" + generatedPrompt.systemPrompt,
-                            "\n=== SAMPLE OPENER ===\n" + generatedPrompt.sampleOpener,
-                            "\n=== OBJECTION HANDLERS ===\n" + generatedPrompt.objectionHandlers.join("\n\n"),
-                            "\n=== CLOSING SCRIPT ===\n" + generatedPrompt.closingScript,
+                            "=== INITIAL GREETING (Agent Details → Initial Greeting Message) ===\n" + generatedPrompt.initialGreeting,
+                            "\n\n=== MAIN PROMPT (Agent Goals → Advanced Mode → Prompt) ===\n" + generatedPrompt.mainPrompt,
+                            "\n\n=== OBJECTION HANDLERS (Reference) ===\n" + generatedPrompt.objectionHandlers.join("\n\n"),
+                            "\n\n=== CLOSING SCRIPT (Reference) ===\n" + generatedPrompt.closingScript,
+                            "\n\n=== COMPLIANCE CHECKLIST ===\n" + generatedPrompt.complianceChecklist.join("\n"),
+                            "\n\n=== GHL SETUP NOTES ===\n" + generatedPrompt.setupNotes.join("\n"),
                           ].join("\n"),
                           "all"
                         )
@@ -654,49 +730,13 @@ export default function Home() {
                       className="w-full py-4 bg-gradient-to-r from-[#D4A017] to-[#F59E0B] text-[#0A0B14] rounded-xl font-bold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 gold-glow"
                     >
                       {copied === "all" ? (
-                        <>
-                          <Check size={16} strokeWidth={3} />
-                          Copied Everything!
-                        </>
+                        <><Check size={16} strokeWidth={3} /> Copied Everything!</>
                       ) : (
-                        <>
-                          <Copy size={16} />
-                          Copy Complete Closer Package
-                        </>
+                        <><Copy size={16} /> Copy Complete GHL Closer Package</>
                       )}
                     </button>
 
-                    {/* Deployment guide */}
-                    <div className="step-card-inactive rounded-xl p-6">
-                      <p className="text-sm font-semibold text-white/70 mb-4 flex items-center gap-2">
-                        <Zap size={14} className="text-[#D4A017]" />
-                        Where to Deploy Your Closer
-                      </p>
-                      <div className="grid sm:grid-cols-2 gap-3">
-                        {[
-                          { name: "GoHighLevel", desc: "Paste into Conversation AI → Custom Instructions", icon: "🚀" },
-                          { name: "ChatGPT / GPT-4", desc: "Create a Custom GPT → System Prompt", icon: "🤖" },
-                          { name: "Claude", desc: "System prompt in API or Claude.ai Projects", icon: "🧠" },
-                          { name: "Voiceflow", desc: "AI Step → System Prompt field", icon: "🎙️" },
-                          { name: "Bland AI", desc: "Task prompt in your phone agent", icon: "📞" },
-                          { name: "Any AI Platform", desc: "Works anywhere that accepts a system prompt", icon: "⚡" },
-                        ].map((platform) => (
-                          <div key={platform.name} className="flex gap-3 p-3 bg-white/3 rounded-lg border border-white/5">
-                            <span className="text-lg flex-shrink-0">{platform.icon}</span>
-                            <div>
-                              <p className="text-xs font-semibold text-white/70">{platform.name}</p>
-                              <p className="text-xs text-white/35 mt-0.5">{platform.desc}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Start over */}
-                    <button
-                      onClick={handleReset}
-                      className="w-full py-3 text-white/30 hover:text-white/60 transition-colors text-sm flex items-center justify-center gap-2"
-                    >
+                    <button onClick={handleReset} className="w-full py-3 text-white/30 hover:text-white/60 transition-colors text-sm flex items-center justify-center gap-2">
                       <RotateCcw size={14} />
                       Build a new closer
                     </button>
@@ -719,9 +759,7 @@ export default function Home() {
             />
             <span className="text-xs text-white/30">The Closer — Powered by Media Traffic LLC</span>
           </div>
-          <p className="text-xs text-white/20">
-            🦇 Burn the Boats. Drop the rope. Close the deal.
-          </p>
+          <p className="text-xs text-white/20">🦇 Burn the Boats. Drop the rope. Close the deal.</p>
         </div>
       </footer>
     </div>
@@ -732,91 +770,51 @@ export default function Home() {
 // Sub-components
 // ============================================================================
 
-function StepHeader({
-  icon,
-  step,
-  title,
-  subtitle,
-}: {
-  icon: React.ReactNode;
-  step: number;
-  title: string;
-  subtitle: string;
-}) {
+function StepHeader({ icon, step, title, subtitle }: { icon: React.ReactNode; step: number; title: string; subtitle: string }) {
   return (
     <div className="mb-8">
       <div className="flex items-center gap-3 mb-2">
-        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#D4A017]/15 text-[#D4A017]">
-          {icon}
-        </div>
-        <span className="text-xs font-bold text-[#D4A017] uppercase tracking-widest">
-          Step {step} of 4
-        </span>
+        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#D4A017]/15 text-[#D4A017]">{icon}</div>
+        <span className="text-xs font-bold text-[#D4A017] uppercase tracking-widest">Step {step} of 4</span>
       </div>
-      <h3
-        className="text-2xl font-bold text-white mb-1"
-        style={{ fontFamily: "'Playfair Display', serif" }}
-      >
-        {title}
-      </h3>
+      <h3 className="text-2xl font-bold text-white mb-1" style={{ fontFamily: "'Playfair Display', serif" }}>{title}</h3>
       <p className="text-sm text-white/45">{subtitle}</p>
     </div>
   );
 }
 
-function FormField({
-  label,
-  placeholder,
-  value,
-  onChange,
-  multiline = false,
-}: {
-  label: string;
-  placeholder: string;
-  value: string;
-  onChange: (v: string) => void;
-  multiline?: boolean;
-}) {
-  const baseClass =
-    "w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-[#D4A017]/50 transition-colors";
-
+function FormField({ label, placeholder, value, onChange, multiline = false }: { label: string; placeholder: string; value: string; onChange: (v: string) => void; multiline?: boolean }) {
+  const baseClass = "w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-[#D4A017]/50 transition-colors";
   return (
     <div>
-      <label className="block text-xs font-semibold text-white/50 uppercase tracking-wide mb-2">
-        {label}
-      </label>
+      <label className="block text-xs font-semibold text-white/50 uppercase tracking-wide mb-2">{label}</label>
       {multiline ? (
-        <textarea
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          rows={3}
-          className={`${baseClass} resize-none`}
-        />
+        <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={3} className={`${baseClass} resize-none`} />
       ) : (
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className={baseClass}
-        />
+        <input type="text" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className={baseClass} />
       )}
     </div>
   );
 }
 
-function NextButton({
-  onClick,
-  label,
-  icon,
-  highlight = false,
-}: {
-  onClick: () => void;
-  label: string;
-  icon?: React.ReactNode;
-  highlight?: boolean;
-}) {
+function PromptBox({ content, isStreaming = false, onCopy, copied, tall = false }: { content: string; isStreaming?: boolean; onCopy: () => void; copied: boolean; tall?: boolean }) {
+  return (
+    <div className="relative">
+      <button
+        onClick={onCopy}
+        className="absolute top-3 right-3 flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors border border-white/10 rounded-lg px-3 py-1.5 hover:border-white/20 bg-black/40 z-10"
+      >
+        {copied ? <Check size={12} /> : <Copy size={12} />}
+        {copied ? "Copied!" : "Copy"}
+      </button>
+      <div className={cn("bg-black/30 rounded-lg p-4 overflow-y-auto", tall ? "max-h-96" : "max-h-64", isStreaming && "typewriter-cursor")}>
+        <pre className="text-xs text-white/65 whitespace-pre-wrap font-mono leading-relaxed pr-16">{content}</pre>
+      </div>
+    </div>
+  );
+}
+
+function NextButton({ onClick, label, icon, highlight = false }: { onClick: () => void; label: string; icon?: React.ReactNode; highlight?: boolean }) {
   return (
     <button
       onClick={onClick}
@@ -843,65 +841,5 @@ function BackButton({ onClick }: { onClick: () => void }) {
       <ChevronRight size={16} className="rotate-180" />
       Back
     </button>
-  );
-}
-
-function PromptSection({
-  title,
-  subtitle,
-  badge,
-  badgeColor,
-  content,
-  isStreaming = false,
-  onCopy,
-  copied,
-}: {
-  title: string;
-  subtitle: string;
-  badge: string;
-  badgeColor: "gold" | "blue";
-  content: string;
-  isStreaming?: boolean;
-  onCopy: () => void;
-  copied: boolean;
-}) {
-  return (
-    <div className="step-card-inactive rounded-xl p-6">
-      <div className="flex items-start justify-between gap-4 mb-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span
-              className={cn(
-                "text-xs font-bold px-2 py-0.5 rounded-full",
-                badgeColor === "gold"
-                  ? "bg-[#D4A017]/20 text-[#D4A017]"
-                  : "bg-blue-500/20 text-blue-400"
-              )}
-            >
-              {badge}
-            </span>
-            <h4 className="text-sm font-semibold text-white/80">{title}</h4>
-          </div>
-          <p className="text-xs text-white/40">{subtitle}</p>
-        </div>
-        <button
-          onClick={onCopy}
-          className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors border border-white/10 rounded-lg px-3 py-1.5 hover:border-white/20 flex-shrink-0"
-        >
-          {copied ? <Check size={12} /> : <Copy size={12} />}
-          {copied ? "Copied!" : "Copy"}
-        </button>
-      </div>
-      <div
-        className={cn(
-          "bg-black/30 rounded-lg p-4 max-h-72 overflow-y-auto",
-          isStreaming && "typewriter-cursor"
-        )}
-      >
-        <pre className="text-xs text-white/65 whitespace-pre-wrap font-mono leading-relaxed">
-          {content}
-        </pre>
-      </div>
-    </div>
   );
 }

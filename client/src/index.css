@@ -219,6 +219,11 @@
     animation: shimmer 1.5s infinite;
   }
 
+  /* Subtle card backgrounds */
+  .bg-white\/3 {
+    background-color: oklch(1 0 0 / 3%);
+  }
+
   /* Scrollbar styling */
   ::-webkit-scrollbar {
     width: 6px;

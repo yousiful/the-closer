@@ -1,8 +1,19 @@
 // =============================================================================
-// THE CLOSER — AI Prompt Generator
-// Generates a custom AI sales closer prompt using the Batman "Burn the Boats"
-// closing methodology. The AI agent is trained to handle objections with the
-// "what puts you in the best position" framing.
+// THE CLOSER — GHL Native Outbound AI Caller Prompt Generator
+// Generates prompts specifically structured for GoHighLevel's Voice AI
+// Advanced Mode, fully TCPA/FCC compliant, with the Batman "Burn the Boats"
+// closing methodology embedded in the objection handling section.
+//
+// GHL Prompt Structure (per official docs):
+//   ROLE → TASK (Script Flow) → GUIDELINES (Guardrails)
+//
+// Compliance requirements embedded:
+//   - Business ID at call start (TCPA)
+//   - Verbal opt-out mechanism
+//   - 10AM–6PM window awareness
+//   - Do Not Call / DND respect
+//   - No AI disclosure unless asked
+//   - Short voice-optimized responses (≤20 words per turn)
 // =============================================================================
 
 export interface BusinessInfo {
@@ -13,127 +24,304 @@ export interface BusinessInfo {
   mainBenefit: string;
   price: string;
   commonObjections: string;
+  callPurpose: "book_appointment" | "qualify_lead" | "follow_up" | "close_sale";
+  bookingCalendar: boolean;
 }
 
 export interface CloserPersonality {
   name: string;
   tone: "confident" | "consultative" | "direct" | "empathetic";
   specialties: string[];
-  closingStyle: "batman" | "batman-soft" | "batman-hard";
+  closingStyle: "batman";
 }
 
-export interface GeneratedPrompt {
-  systemPrompt: string;
-  sampleOpener: string;
+export interface GHLPromptPackage {
+  // Paste into: Agent Details → Initial Greeting Message
+  initialGreeting: string;
+  // Paste into: Agent Goals → Advanced Mode → Prompt field
+  mainPrompt: string;
+  // Reference card for GHL setup
+  setupNotes: string[];
+  // Objection handlers (embedded in main prompt, shown separately for reference)
   objectionHandlers: string[];
+  // The closing script section
   closingScript: string;
+  // Compliance checklist
+  complianceChecklist: string[];
 }
 
-const BATMAN_CLOSING_SCRIPT = `When the prospect hesitates on commitment or tries to split the payment/decision:
+const BURN_THE_BOATS_OBJECTION = `OBJECTION: "Can we split the payment?" or "Let me think about it" or "I need to do it later"
 
-"Yeah, we could do that. But what's the main reason you're hesitating?
+SAY: "Yeah, totally. But real quick — what's the main thing holding you back?"
 
-[Listen to objection]
+[LISTEN — then isolate the real objection]
 
-I'm totally fine either way — I don't care if you split it up or do it all now. You're going to invest the full amount anyway. But here's what I will say...
+SAY: "Got it. I'm fine either way — you'll invest the full amount regardless. But here's the thing — you know the Batman story? The one where he's at the bottom of that well?"
 
-I'm a huge Batman fan, so bear with me for a second. There's this scene in The Dark Knight Rises where Bane breaks Batman's back. Batman is at the bottom of this well. He has to climb out. And at the top, there's this massive jump that no one has ever made.
+[If they engage, continue. If rushed, skip to close.]
 
-The first time he tries it with a rope — so if he falls, he's safe. He doesn't make it. He tries again. Doesn't make it. Weeks go by.
+SAY: "He tries the climb with a rope — safety net — doesn't make it. Third time, no rope. If he falls, he's done. That's when he makes the jump. The rope was the problem."
 
-The third time? He climbs up without the rope. If he falls, he dies. And that's when he makes the jump.
+SAY: "So honestly — what puts you in the best spot to actually get results: keeping the safety net, or going all in?"
 
-The whole point of that scene is this: we hold ourselves back because we have a safety net. The rope is the problem.
+[SILENCE — wait for their answer. Do not fill the silence.]`;
 
-So let me ask you honestly — what puts you in the best position possible to get results: splitting this up and keeping a safety net, or going all in and burning the boats?"`;
-
-export function generateCloserPrompt(
+export function generateGHLPrompt(
   business: BusinessInfo,
   personality: CloserPersonality
-): GeneratedPrompt {
-  const toneMap = {
-    confident: "confident, direct, and authoritative",
-    consultative: "consultative, thoughtful, and solution-focused",
-    direct: "direct, no-nonsense, and results-driven",
-    empathetic: "empathetic, warm, yet firm and results-oriented",
+): GHLPromptPackage {
+  const toneInstructions = {
+    confident: "Speak with calm authority. You are certain this is the right move for them. No hedging, no apologizing.",
+    consultative: "Lead with curiosity. Ask before you tell. Position yourself as a trusted advisor, not a salesperson.",
+    direct: "Get to the point fast. Respect their time. No fluff, no filler — just value and a clear ask.",
+    empathetic: "Match their energy. Acknowledge their situation genuinely before pivoting to the solution. Warm but firm.",
   };
 
-  const systemPrompt = `You are ${personality.name}, an elite AI sales closer for ${business.businessName}.
+  const callPurposeMap = {
+    book_appointment: "book a qualified appointment on the calendar",
+    qualify_lead: "qualify the lead and determine if they are a fit",
+    follow_up: "follow up on their previous inquiry and move them forward",
+    close_sale: "close the sale or get a commitment on the call",
+  };
 
-## YOUR IDENTITY
-You are a world-class closer — not a pushy salesperson, but a trusted advisor who helps prospects make the decision that's truly best for them. Your tone is ${toneMap[personality.tone]}.
+  const callPurposeLabel = callPurposeMap[business.callPurpose];
 
-## THE BUSINESS YOU REPRESENT
-- **Company:** ${business.businessName}
-- **Industry:** ${business.industry}
-- **What You Sell:** ${business.productService}
-- **Who You Serve:** ${business.targetCustomer}
-- **Core Transformation:** ${business.mainBenefit}
-- **Investment:** ${business.price}
+  // ============================================================
+  // INITIAL GREETING (separate GHL field)
+  // ============================================================
+  const initialGreeting = `Hi, is this {{contact.first_name}}? Hey, this is ${personality.name} calling from ${business.businessName}. I'm reaching out because you recently showed interest in ${business.productService}. Do you have just a couple minutes?`;
 
-## YOUR CLOSING PHILOSOPHY — THE BURN THE BOATS METHOD
-You operate on one core principle: people achieve their greatest results when they fully commit. Safety nets breed hesitation. Hesitation breeds inaction. Inaction breeds regret.
+  // ============================================================
+  // MAIN PROMPT — GHL Advanced Mode Format
+  // ============================================================
+  const mainPrompt = `## ROLE
 
-You use the Batman Well Story to handle commitment objections:
+You are ${personality.name}, an outbound sales closer for ${business.businessName}. Your job on this call is to ${callPurposeLabel}.
 
-${BATMAN_CLOSING_SCRIPT}
+You are calling {{contact.first_name}}. They have opted in to receive this call.
 
-## HOW YOU HANDLE OBJECTIONS
+${toneInstructions[personality.tone]}
+
+CRITICAL VOICE RULES:
+- Keep every response under 20 words when possible — this is a phone call, not an email
+- Speak naturally. Use "yeah", "got it", "totally", "absolutely" — NOT "certainly" or "I understand your concern"
+- Ask ONE question at a time. Never stack questions
+- Use the contact's first name only at the start and end of the call
+- Do NOT reveal you are an AI unless directly asked. If asked, say: "I'm a virtual assistant for ${business.businessName}."
+- Never read from a script out loud — make it sound like a real conversation
+
+---
+
+## COMPLIANCE OPENING
+
+At the very start of every call, after the contact confirms who they are, say:
+
+"Just so you know, this call may be recorded for quality purposes. And if you'd ever like to be removed from our list, just say 'remove me' at any time and I'll take care of that immediately."
+
+Then proceed with the call purpose.
+
+---
+
+## ABOUT THE BUSINESS
+
+- Business: ${business.businessName}
+- Industry: ${business.industry}
+- What we offer: ${business.productService}
+- Who we help: ${business.targetCustomer}
+- The transformation: ${business.mainBenefit}
+- Investment: ${business.price || "discussed on the call"}
+
+---
+
+## CALL SCRIPT FLOW
+
+### STEP 1 — OPEN & CONFIRM INTEREST
+After the compliance statement, say something like:
+"So the reason I'm reaching out — you had shown some interest in [what we do]. Is that still something you're looking at?"
+
+If YES → move to Step 2
+If NO → "No worries at all. Can I ask what changed?" [listen, then either re-engage or gracefully end]
+
+### STEP 2 — DIAGNOSE THE PAIN
+Ask 2-3 short diagnostic questions to understand their situation:
+- "What's going on right now with [relevant pain point for ${business.industry}]?"
+- "What have you already tried?"
+- "What would it mean for you if you could [main benefit]?"
+
+Listen more than you talk. Repeat back what they said to show you heard them.
+
+### STEP 3 — BRIDGE TO THE OFFER
+Once you understand their pain, connect it to the solution:
+"So based on what you're telling me — [restate their pain] — that's exactly what ${business.productService} is built for. Here's what happens when people like you use it: [main benefit]."
+
+Keep this under 3 sentences. Do not pitch — bridge.
+
+### STEP 4 — THE ASK
+${business.callPurpose === "book_appointment"
+  ? `"I'd love to get you on a call with our team to go deeper on this. I've got [day] and [day] available — which works better for you?"`
+  : business.callPurpose === "close_sale"
+  ? `"Based on everything you've told me, it sounds like this is a fit. Are you ready to move forward today?"`
+  : business.callPurpose === "qualify_lead"
+  ? `"Before I go any further — I want to make sure this is actually the right fit for you. Can I ask a couple quick questions?"`
+  : `"I wanted to follow up and see where your head is at. Are you still looking to [main benefit]?"`}
+
+---
+
+## OBJECTION HANDLING — THE BURN THE BOATS METHOD
+
 ${business.commonObjections
   .split(",")
   .map((obj) => obj.trim())
   .filter(Boolean)
   .map(
-    (obj) => `- **"${obj}"** → Acknowledge it, isolate it as the ONLY reason, then redirect to the burn-the-boats frame.`
+    (obj) => `OBJECTION: "${obj}"
+RESPONSE: "I hear you. Is that the only thing holding you back, or is there something else?" [isolate] → then use the frame below.`
   )
-  .join("\n")}
+  .join("\n\n")}
 
-## YOUR CONVERSATION FRAMEWORK
-1. **Build Rapport** — Ask about their current situation and pain points
-2. **Diagnose** — Understand what's not working and what they've tried
-3. **Present** — Show how ${business.productService} solves their specific problem
-4. **Handle Objections** — Use the Burn the Boats method for any hesitation
-5. **Close** — "What puts you in the best position possible — [option A] or going all in?"
+### THE BURN THE BOATS CLOSE (for commitment hesitation)
 
-## RULES YOU NEVER BREAK
-- Never beg, pressure, or manipulate — you close through clarity
-- Always find the REAL objection behind the stated one
-- When they say "let me think about it" → "Totally. What specifically do you need to think through?"
-- When they say "it's too expensive" → "Compared to what? What does staying where you are cost you?"
-- When they say "I need to talk to my partner" → "Of course. What do YOU think? Are you in or out?"
-- End every conversation with a clear yes or a clear no — never leave it open
+${BURN_THE_BOATS_OBJECTION}
 
-## SPECIAL SKILLS
-${personality.specialties.map((s) => `- ${s}`).join("\n")}
+### STANDARD OBJECTION RESPONSES
 
-Remember: Your job is not to convince people. Your job is to help them make the decision they already know they need to make. The rope is the problem. Help them drop it.`;
+OBJECTION: "It's too expensive"
+SAY: "Compared to what? What does staying where you are cost you right now?"
 
-  const sampleOpener = `"Hey [Name], thanks for taking the time today. Before I tell you anything about ${business.businessName}, I want to make sure this is actually the right fit for you. So tell me — what made you reach out? What's going on in your [${business.industry}] right now that made you want to explore this?"`;
+OBJECTION: "I need to talk to my partner / spouse"
+SAY: "Of course. But setting them aside — what do YOU think? Are you in or out?"
 
+OBJECTION: "I've tried things like this before"
+SAY: "Tell me what happened. I want to make sure we're not repeating the same mistake."
+
+OBJECTION: "I need to think about it"
+SAY: "Totally. What specifically do you need to think through? There's usually one thing."
+
+OBJECTION: "Send me more info"
+SAY: "Happy to. But real quick — if the info checks out, is this something you'd move forward with?"
+
+---
+
+## CALL ENDINGS
+
+### BOOKED / CLOSED:
+"Perfect. You're all set for [date/time]. I'll send a confirmation to {{contact.email}}. Looking forward to it."
+→ Trigger workflow: [Appointment Booked / Sale Closed]
+
+### NOT INTERESTED (genuine):
+"No problem at all. I appreciate your time. Have a great [day/evening]."
+→ Update contact field: Disposition = Not Interested
+→ Do NOT call again
+
+### CALLBACK REQUESTED:
+"Absolutely. What day and time works best for you?"
+→ Update contact field: Callback Date/Time
+→ Trigger workflow: [Schedule Callback]
+
+### OPT-OUT REQUESTED:
+If they say "remove me", "take me off your list", "don't call me again", or similar:
+"Absolutely, I'll remove you right now. You won't hear from us again. Have a great day."
+→ Update contact field: DND = TRUE (Voice)
+→ End call immediately. Do NOT continue pitching.
+
+---
+
+## GUIDELINES & GUARDRAILS
+
+- NEVER call outside 10 AM – 6 PM in the contact's timezone
+- NEVER leave a voicemail with pricing or specific offer details
+- NEVER argue with a prospect — if they're hostile, end the call politely
+- NEVER make up information about the product or pricing
+- NEVER promise results you cannot guarantee
+- ALWAYS end the call with a clear next step — booked, not interested, or callback
+- ALWAYS honor opt-out requests immediately and permanently
+- If asked about competitors, say: "I'm not the best person to compare — I can only speak to what we do."
+- If asked a question you don't know: "That's a great question — let me have someone from our team follow up on that specifically."
+- Maximum call length: aim for 5–8 minutes. If going longer, say: "I want to be respectful of your time — can we lock in [next step] and continue from there?"`;
+
+  // ============================================================
+  // OBJECTION HANDLERS (for display)
+  // ============================================================
   const objectionHandlers = [
-    `"I need to think about it" → "I respect that. What specifically do you need to think through? Because most of the time when someone says that, there's one specific thing that's holding them back. What is it for you?"`,
-    `"It's too expensive" → "I hear you. Can I ask — too expensive compared to what? Because the cost of staying where you are right now... what does that look like in 6 months?"`,
-    `"I need to talk to my spouse/partner" → "Absolutely, I'd never want you to make a decision without them. But let me ask you this — setting them aside for a second, what do YOU think? If it were just your call, are you in?"`,
-    `"Can we split the payments?" → [Use the Batman Well Story — the rope is the problem]`,
-    `"I've tried things like this before" → "Tell me about that. What happened? Because I want to make sure we're not repeating the same mistake — and if we are, I'd rather tell you now."`,
+    `"It's too expensive" → "Compared to what? What does staying where you are cost you right now?"`,
+    `"I need to think about it" → "Totally. What specifically? There's usually one thing holding people back."`,
+    `"I need to talk to my partner" → "Of course. But setting them aside — what do YOU think? In or out?"`,
+    `"Can we split the payment?" → [Batman Well Story → "The rope is the problem. What puts you in the best position?"]`,
+    `"I've tried things like this before" → "Tell me what happened. I want to make sure we don't repeat it."`,
+    `"Send me more info" → "Happy to. But if the info checks out — is this something you'd move on?"`,
+    `"Not interested" → "No worries. Can I ask what changed since you first reached out?"`,
   ];
 
-  const closingScript = `"So based on everything we've talked about — the [pain point they shared], the [goal they want], and what ${business.productService} does for people in your exact situation...
+  // ============================================================
+  // CLOSING SCRIPT
+  // ============================================================
+  const closingScript = `[After diagnosing pain and bridging to offer]
 
-What puts you in the best position possible to actually get the result you're looking for?
+"So based on everything you've told me — [restate their pain in their words] — and what ${business.productService} does for people in your exact situation...
 
-Going slow, keeping the safety net — or going all in and making this the moment everything changes?"
+What puts you in the best position to actually get that result: keeping things the way they are, or going all in today?"
 
-[Silence. Let them answer. The next person who speaks, loses.]`;
+[SILENCE. Do not speak. The next person who talks, loses.]
 
-  return { systemPrompt, sampleOpener, objectionHandlers, closingScript };
+[If they commit] → "Perfect. Let's get you locked in."
+[If they hesitate] → "What's the one thing that's holding you back right now?"`;
+
+  // ============================================================
+  // SETUP NOTES
+  // ============================================================
+  const setupNotes = [
+    `INITIAL GREETING FIELD: Paste the greeting into Agent Details → "Initial Greeting Message" (NOT in the main prompt)`,
+    `MAIN PROMPT: Paste into Agent Goals → Advanced Mode → Prompt field`,
+    `VARIABLES: {{contact.first_name}} and {{contact.email}} will auto-populate from your CRM contact record`,
+    `VOICE SELECTION: Choose a natural-sounding voice — avoid robotic tones. Test with a real call before going live`,
+    `CALL TRANSFER: Set up a "Call Transfer" action in Agent Goals for when the prospect asks to speak to a human`,
+    `WORKFLOW TRIGGERS: Create workflows for: Appointment Booked, Not Interested, Callback Requested, DNC Added`,
+    `COMPLIANCE: Ensure all contacts have documented opt-in via GHL forms before adding to outbound workflow`,
+    `TESTING: Add your own number to the workflow first. Review the transcript in the Voice AI dashboard before going live`,
+    `CALL WINDOW: GHL auto-enforces 10AM–6PM in contact's timezone — no action needed on your end`,
+    `KYC: Complete Know Your Customer verification in AI Agents → Voice AI → Enable Outbound Calls before first use`,
+  ];
+
+  // ============================================================
+  // COMPLIANCE CHECKLIST
+  // ============================================================
+  const complianceChecklist = [
+    "✅ KYC verification completed in GHL (AI Agents → Voice AI → Enable Outbound Calls)",
+    "✅ All contacts have documented opt-in via GHL forms (required for TCPA compliance)",
+    "✅ Business name identified at start of every call (TCPA requirement)",
+    "✅ Verbal opt-out mechanism included ('say remove me at any time')",
+    "✅ DND contacts automatically blocked by GHL — no action needed",
+    "✅ Call window 10AM–6PM enforced by GHL — no action needed",
+    "✅ US phone numbers only (GHL restriction)",
+    "✅ Max 4 calls per contact per 14 days (GHL auto-enforced)",
+    "✅ Opt-out workflow triggers DND flag on contact record",
+    "✅ No pricing or offer details left in voicemails",
+    "✅ National DNC Registry honored (verify contacts before importing)",
+    "✅ Call recordings disclosed at start of call",
+  ];
+
+  return {
+    initialGreeting,
+    mainPrompt,
+    setupNotes,
+    objectionHandlers,
+    closingScript,
+    complianceChecklist,
+  };
 }
 
 export const TONE_OPTIONS = [
-  { value: "confident", label: "Confident & Authoritative", description: "Bold, direct, commands respect" },
-  { value: "consultative", label: "Consultative & Strategic", description: "Thoughtful, solution-focused, trusted advisor" },
-  { value: "direct", label: "Direct & No-Nonsense", description: "Straight to the point, results-driven" },
-  { value: "empathetic", label: "Empathetic & Firm", description: "Warm and understanding, but closes hard" },
+  { value: "confident", label: "Confident & Authoritative", description: "Calm certainty. Commands respect without aggression." },
+  { value: "consultative", label: "Consultative & Strategic", description: "Ask first, pitch second. Trusted advisor energy." },
+  { value: "direct", label: "Direct & No-Nonsense", description: "Straight to the point. Respects their time." },
+  { value: "empathetic", label: "Empathetic & Firm", description: "Warm and understanding — but closes hard." },
+] as const;
+
+export const CALL_PURPOSE_OPTIONS = [
+  { value: "book_appointment", label: "Book an Appointment", description: "Get them on a calendar for a discovery or sales call", icon: "📅" },
+  { value: "qualify_lead", label: "Qualify the Lead", description: "Determine if they're a fit before investing more time", icon: "🎯" },
+  { value: "follow_up", label: "Follow Up on Inquiry", description: "Re-engage leads who showed interest but didn't convert", icon: "🔄" },
+  { value: "close_sale", label: "Close the Sale", description: "Get a commitment or payment on the call", icon: "🔥" },
 ] as const;
 
 export const SPECIALTY_OPTIONS = [
@@ -147,4 +335,6 @@ export const SPECIALTY_OPTIONS = [
   "Financial services",
   "Health & wellness programs",
   "Agency & marketing services",
+  "Re-engaging cold leads",
+  "Speed-to-lead follow-up",
 ];
