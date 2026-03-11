@@ -1,10 +1,10 @@
 // =============================================================================
-// THE CLOSER — GHL Native Outbound AI Caller Prompt Generator
-// Generates prompts specifically structured for GoHighLevel's Voice AI
+// THE CLOSER — Kenji AI Native Outbound AI Caller Prompt Generator
+// Generates prompts specifically structured for Kenji AI's Voice AI
 // Advanced Mode, fully TCPA/FCC compliant, with the Batman "Burn the Boats"
 // closing methodology embedded in the objection handling section.
 //
-// GHL Prompt Structure (per official docs):
+// Kenji AI Prompt Structure (per official docs):
 //   ROLE → TASK (Script Flow) → GUIDELINES (Guardrails)
 //
 // Compliance requirements embedded:
@@ -35,12 +35,13 @@ export interface CloserPersonality {
   closingStyle: "batman";
 }
 
-export interface GHLPromptPackage {
+export interface KenjiAIPromptPackage {
   // Paste into: Agent Details → Initial Greeting Message
   initialGreeting: string;
   // Paste into: Agent Goals → Advanced Mode → Prompt field
   mainPrompt: string;
-  // Reference card for GHL setup
+  // Reference card for Kenji AI setup
+
   setupNotes: string[];
   // Objection handlers (embedded in main prompt, shown separately for reference)
   objectionHandlers: string[];
@@ -66,10 +67,10 @@ SAY: "So honestly — what puts you in the best spot to actually get results: ke
 
 [SILENCE — wait for their answer. Do not fill the silence.]`;
 
-export function generateGHLPrompt(
+export function generateKenjiAIPrompt(
   business: BusinessInfo,
   personality: CloserPersonality
-): GHLPromptPackage {
+): KenjiAIPromptPackage {
   const toneInstructions = {
     confident: "Speak with calm authority. You are certain this is the right move for them. No hedging, no apologizing.",
     consultative: "Lead with curiosity. Ask before you tell. Position yourself as a trusted advisor, not a salesperson.",
@@ -87,12 +88,12 @@ export function generateGHLPrompt(
   const callPurposeLabel = callPurposeMap[business.callPurpose];
 
   // ============================================================
-  // INITIAL GREETING (separate GHL field)
+  // INITIAL GREETING (separate Kenji AI field)
   // ============================================================
   const initialGreeting = `Hi, is this {{contact.first_name}}? Hey, this is ${personality.name} calling from ${business.businessName}. I'm reaching out because you recently showed interest in ${business.productService}. Do you have just a couple minutes?`;
 
   // ============================================================
-  // MAIN PROMPT — GHL Advanced Mode Format
+  // MAIN PROMPT — Kenji AI Advanced Mode Format
   // ============================================================
   const mainPrompt = `## ROLE
 
@@ -276,9 +277,9 @@ What puts you in the best position to actually get that result: keeping things t
     `VOICE SELECTION: Choose a natural-sounding voice — avoid robotic tones. Test with a real call before going live`,
     `CALL TRANSFER: Set up a "Call Transfer" action in Agent Goals for when the prospect asks to speak to a human`,
     `WORKFLOW TRIGGERS: Create workflows for: Appointment Booked, Not Interested, Callback Requested, DNC Added`,
-    `COMPLIANCE: Ensure all contacts have documented opt-in via GHL forms before adding to outbound workflow`,
+    `COMPLIANCE: Ensure all contacts have documented opt-in via Kenji AI forms before adding to outbound workflow`,
     `TESTING: Add your own number to the workflow first. Review the transcript in the Voice AI dashboard before going live`,
-    `CALL WINDOW: GHL auto-enforces 10AM–6PM in contact's timezone — no action needed on your end`,
+    `CALL WINDOW: Kenji AI auto-enforces 10AM–6PM in contact's timezone — no action needed on your end`,
     `KYC: Complete Know Your Customer verification in AI Agents → Voice AI → Enable Outbound Calls before first use`,
   ];
 
@@ -286,14 +287,14 @@ What puts you in the best position to actually get that result: keeping things t
   // COMPLIANCE CHECKLIST
   // ============================================================
   const complianceChecklist = [
-    "✅ KYC verification completed in GHL (AI Agents → Voice AI → Enable Outbound Calls)",
-    "✅ All contacts have documented opt-in via GHL forms (required for TCPA compliance)",
+    "✅ KYC verification completed in Kenji AI (AI Agents → Voice AI → Enable Outbound Calls)",
+    "✅ All contacts have documented opt-in via Kenji AI forms (required for TCPA compliance)",
     "✅ Business name identified at start of every call (TCPA requirement)",
     "✅ Verbal opt-out mechanism included ('say remove me at any time')",
-    "✅ DND contacts automatically blocked by GHL — no action needed",
-    "✅ Call window 10AM–6PM enforced by GHL — no action needed",
-    "✅ US phone numbers only (GHL restriction)",
-    "✅ Max 4 calls per contact per 14 days (GHL auto-enforced)",
+    "✅ DND contacts automatically blocked by Kenji AI — no action needed",
+    "✅ Call window 10AM–6PM enforced by Kenji AI — no action needed",
+    "✅ US phone numbers only (Kenji AI restriction)",
+    "✅ Max 4 calls per contact per 14 days (Kenji AI auto-enforced)",
     "✅ Opt-out workflow triggers DND flag on contact record",
     "✅ No pricing or offer details left in voicemails",
     "✅ National DNC Registry honored (verify contacts before importing)",

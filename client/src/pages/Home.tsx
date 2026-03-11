@@ -1,7 +1,7 @@
 // =============================================================================
-// THE CLOSER — Main Page (GHL Native Outbound Caller Edition)
+// THE CLOSER — Main Page (Kenji AI Native Outbound Caller Edition)
 // Design: Premium SaaS / Dark Intelligence
-// Generates TCPA-compliant GHL Voice AI outbound caller prompts with the
+// Generates TCPA-compliant Kenji AI Voice outbound caller prompts with the
 // Batman "Burn the Boats" closing methodology.
 // =============================================================================
 
@@ -13,13 +13,13 @@ import StepIndicator from "@/components/StepIndicator";
 import BatmanQuote from "@/components/BatmanQuote";
 import { useTypewriter } from "@/hooks/useTypewriter";
 import {
-  generateGHLPrompt,
+  generateKenjiAIPrompt,
   TONE_OPTIONS,
   CALL_PURPOSE_OPTIONS,
   SPECIALTY_OPTIONS,
   type BusinessInfo,
   type CloserPersonality,
-  type GHLPromptPackage,
+  type KenjiAIPromptPackage,
 } from "@/lib/generatePrompt";
 import {
   Copy,
@@ -40,7 +40,7 @@ const WIZARD_STEPS = [
   { id: 1, label: "Business Info", sublabel: "Tell us about your offer" },
   { id: 2, label: "Edit & Refine", sublabel: "Dial in the details" },
   { id: 3, label: "Closer Skills", sublabel: "Customize your agent" },
-  { id: 4, label: "GHL Prompt", sublabel: "Ready to deploy" },
+  { id: 4, label: "Kenji Prompt", sublabel: "Ready to deploy" },
 ];
 
 const DEFAULT_BUSINESS: BusinessInfo = {
@@ -71,7 +71,7 @@ export default function Home() {
   const [urlInput, setUrlInput] = useState("");
   const [textInput, setTextInput] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedPrompt, setGeneratedPrompt] = useState<GHLPromptPackage | null>(null);
+  const [generatedPrompt, setGeneratedPrompt] = useState<KenjiAIPromptPackage | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [promptStarted, setPromptStarted] = useState(false);
   const [activeTab, setActiveTab] = useState<"main" | "greeting" | "objections" | "closing" | "compliance">("greeting");
@@ -119,7 +119,7 @@ export default function Home() {
     completeStep(3);
     setIsGenerating(true);
     setTimeout(() => {
-      const result = generateGHLPrompt(business, personality);
+      const result = generateKenjiAIPrompt(business, personality);
       setGeneratedPrompt(result);
       setIsGenerating(false);
       setTimeout(() => {
@@ -201,13 +201,13 @@ export default function Home() {
               <h1 className="text-xl font-bold text-white" style={{ fontFamily: "'Playfair Display', serif" }}>
                 The <span className="text-gold-gradient">Closer</span>
               </h1>
-              <p className="text-xs text-white/40 -mt-0.5">GHL Outbound AI Caller Builder</p>
+              <p className="text-xs text-white/40 -mt-0.5">Kenji AI Caller Builder</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <span className="hidden sm:flex items-center gap-1.5 text-xs text-white/30 border border-white/10 rounded-full px-3 py-1">
               <Phone size={10} className="text-[#D4A017]" />
-              GHL Voice AI · TCPA Compliant
+              Kenji AI Caller · TCPA Compliant
             </span>
             {completedSteps.length > 0 && (
               <button
@@ -227,21 +227,21 @@ export default function Home() {
         {/* Hero */}
         <div className="text-center mb-12">
           <p className="text-xs font-semibold text-[#D4A017] uppercase tracking-widest mb-3">
-            ✦ GHL Native Outbound AI Caller ✦
+            ✦ Kenji Native AI Outbound Caller ✦
           </p>
           <h2
             className="text-4xl sm:text-5xl font-bold text-white mb-4 leading-tight"
             style={{ fontFamily: "'Playfair Display', serif" }}
           >
-            Build Your GHL{" "}
+            Build Your Kenji{" "}
             <span className="text-gold-gradient">AI Closer</span>
             <br />
             <span className="text-white/60 text-3xl sm:text-4xl italic">in 4 minutes</span>
           </h2>
           <p className="text-white/50 max-w-xl mx-auto text-sm leading-relaxed">
-            Generate a TCPA-compliant, GHL Voice AI–ready outbound caller prompt powered by the{" "}
+            Generate a TCPA-compliant, Kenji AI Caller–ready outbound caller prompt powered by the{" "}
             <span className="text-[#D4A017]/80">Burn the Boats</span> closing methodology.
-            Drop it straight into GHL Advanced Mode and go.
+            Drop it straight into Kenji AI Advanced Mode and go.
           </p>
         </div>
 
@@ -431,7 +431,7 @@ export default function Home() {
                     <div>
                       <p className="text-xs font-bold text-[#D4A017] mb-1">TCPA Compliance Built In</p>
                       <p className="text-xs text-white/50 leading-relaxed">
-                        Your generated prompt will include: business identification at call start, verbal opt-out mechanism, DNC handling, and GHL's 10AM–6PM call window compliance language. All required by FCC/TCPA for AI outbound calls.
+                        Your generated prompt will include: business identification at call start, verbal opt-out mechanism, DNC handling, and Kenji AI's 10AM–6PM call window compliance language. All required by FCC/TCPA for AI outbound calls.
                       </p>
                     </div>
                   </div>
@@ -512,17 +512,17 @@ export default function Home() {
 
                 <div className="flex gap-3">
                   <BackButton onClick={() => setCurrentStep(2)} />
-                  <NextButton onClick={handleStep3Next} label="Generate GHL Prompt" icon={<Sparkles size={16} />} highlight />
+                  <NextButton onClick={handleStep3Next} label="Generate Kenji AI Prompt" icon={<Sparkles size={16} />} highlight />
                 </div>
               </div>
             )}
 
             {/* ================================================================
-                STEP 4 — Generated GHL Prompt
+                STEP 4 — Generated Kenji AI Prompt
                 ================================================================ */}
             {currentStep === 4 && (
               <div className="step-enter">
-                <StepHeader icon={<FileText size={20} />} step={4} title="Your GHL closer is ready" subtitle="Copy each section into the corresponding GHL Voice AI field" />
+                <StepHeader icon={<FileText size={20} />} step={4} title="Your Kenji AI closer is ready" subtitle="Copy each section into the corresponding Kenji AI Caller field" />
 
                 {isGenerating ? (
                   <div className="step-card-inactive rounded-xl p-12 flex flex-col items-center justify-center gap-4">
@@ -531,7 +531,7 @@ export default function Home() {
                       alt=""
                       className="w-16 h-16 object-contain animate-pulse"
                     />
-                    <p className="text-[#D4A017] font-semibold">Forging your GHL closer...</p>
+                    <p className="text-[#D4A017] font-semibold">Forging your Kenji AI closer...</p>
                     <p className="text-white/40 text-sm text-center max-w-xs">
                       Embedding Burn the Boats + TCPA compliance into your Voice AI prompt
                     </p>
@@ -573,7 +573,7 @@ export default function Home() {
                       <div className="step-enter">
                         <div className="step-card-inactive rounded-xl p-5 mb-3">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">GHL Field</span>
+                            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">Kenji Field</span>
                             <p className="text-sm font-semibold text-white/80">Agent Details → Initial Greeting Message</p>
                           </div>
                           <p className="text-xs text-white/40 mb-4">This is the FIRST thing the AI says when the call connects. Paste this into the "Initial Greeting Message" field — NOT the main prompt.</p>
@@ -584,9 +584,9 @@ export default function Home() {
                           />
                         </div>
                         <div className="bg-[#D4A017]/8 border border-[#D4A017]/20 rounded-lg p-4">
-                          <p className="text-xs text-[#D4A017] font-semibold mb-2">💡 GHL Setup Tip</p>
+                          <p className="text-xs text-[#D4A017] font-semibold mb-2">💡 Kenji AI Setup Tip</p>
                           <p className="text-xs text-white/50 leading-relaxed">
-                            In GHL: <strong className="text-white/70">AI Agents → Voice AI → Create Agent → Agent Details tab</strong> → paste into "Initial Greeting Message". This fires before your main prompt kicks in.
+                            In Kenji AI: <strong className="text-white/70">AI Agents → Voice AI → Create Agent → Agent Details tab</strong> → paste into "Initial Greeting Message". This fires before your main prompt kicks in.
                           </p>
                         </div>
                       </div>
@@ -600,7 +600,7 @@ export default function Home() {
                             <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#D4A017]/20 text-[#D4A017]">Main Prompt</span>
                             <p className="text-sm font-semibold text-white/80">Agent Goals → Advanced Mode → Prompt</p>
                           </div>
-                          <p className="text-xs text-white/40 mb-4">The full system prompt. Paste into GHL's Advanced Mode prompt field. Contains: Role, Compliance Opening, Script Flow, Objection Handling, and Guardrails.</p>
+                          <p className="text-xs text-white/40 mb-4">The full system prompt. Paste into Kenji AI's Advanced Mode prompt field. Contains: Role, Compliance Opening, Script Flow, Objection Handling, and Guardrails.</p>
                           <PromptBox
                             content={typewriterDone ? generatedPrompt.mainPrompt : typewriterText}
                             isStreaming={!typewriterDone}
@@ -610,9 +610,9 @@ export default function Home() {
                           />
                         </div>
                         <div className="bg-[#D4A017]/8 border border-[#D4A017]/20 rounded-lg p-4">
-                          <p className="text-xs text-[#D4A017] font-semibold mb-2">💡 GHL Setup Tip</p>
+                          <p className="text-xs text-[#D4A017] font-semibold mb-2">💡 Kenji AI Setup Tip</p>
                           <p className="text-xs text-white/50 leading-relaxed">
-                            In GHL: <strong className="text-white/70">Agent Goals tab → click "Switch to Advanced Mode" → paste into the Prompt field</strong>. Use the "Evaluate" button to test before going live.
+                            In Kenji AI: <strong className="text-white/70">Agent Goals tab → click "Switch to Advanced Mode" → paste into the Prompt field</strong>. Use the "Evaluate" button to test before going live.
                           </p>
                         </div>
                       </div>
@@ -698,7 +698,7 @@ export default function Home() {
                         <div className="step-card-inactive rounded-xl p-5">
                           <p className="text-sm font-semibold text-white/80 mb-4 flex items-center gap-2">
                             <Zap size={16} className="text-[#D4A017]" />
-                            GHL Setup Notes
+                            Kenji AI Setup Notes
                           </p>
                           <div className="space-y-2">
                             {generatedPrompt.setupNotes.map((note: string, i: number) => (
@@ -722,7 +722,7 @@ export default function Home() {
                             "\n\n=== OBJECTION HANDLERS (Reference) ===\n" + generatedPrompt.objectionHandlers.join("\n\n"),
                             "\n\n=== CLOSING SCRIPT (Reference) ===\n" + generatedPrompt.closingScript,
                             "\n\n=== COMPLIANCE CHECKLIST ===\n" + generatedPrompt.complianceChecklist.join("\n"),
-                            "\n\n=== GHL SETUP NOTES ===\n" + generatedPrompt.setupNotes.join("\n"),
+                            "\n\n=== KENJI AI SETUP NOTES ===\n" + generatedPrompt.setupNotes.join("\n"),
                           ].join("\n"),
                           "all"
                         )
@@ -732,7 +732,7 @@ export default function Home() {
                       {copied === "all" ? (
                         <><Check size={16} strokeWidth={3} /> Copied Everything!</>
                       ) : (
-                        <><Copy size={16} /> Copy Complete GHL Closer Package</>
+                        <><Copy size={16} /> Copy Complete Kenji AI Closer Package</>
                       )}
                     </button>
 
