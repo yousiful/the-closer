@@ -74,7 +74,7 @@ export default function Home() {
   const [generatedPrompt, setGeneratedPrompt] = useState<KenjiAIPromptPackage | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [promptStarted, setPromptStarted] = useState(false);
-  const [activeTab, setActiveTab] = useState<"main" | "greeting" | "objections" | "closing" | "compliance">("greeting");
+  const [activeTab, setActiveTab] = useState<"main" | "greeting" | "objections" | "closing" | "compliance" | "triggers">("greeting");
 
   const { displayed: typewriterText, done: typewriterDone } = useTypewriter(
     generatedPrompt?.mainPrompt ?? "",
@@ -532,6 +532,7 @@ export default function Home() {
                       className="w-16 h-16 object-contain animate-pulse"
                     />
                     <p className="text-[#D4A017] font-semibold">Forging your Kenji AI closer...</p>
+                    <p className="text-white/30 text-xs text-center max-w-xs mt-1">Fixing all evaluator issues automatically</p>
                     <p className="text-white/40 text-sm text-center max-w-xs">
                       Embedding Burn the Boats + TCPA compliance into your Voice AI prompt
                     </p>
@@ -548,6 +549,7 @@ export default function Home() {
                       {[
                         { key: "greeting", label: "Initial Greeting", icon: "👋" },
                         { key: "main", label: "Main Prompt", icon: "🧠" },
+                        { key: "triggers", label: "Action Triggers", icon: "⚡" },
                         { key: "objections", label: "Objection Handlers", icon: "🔥" },
                         { key: "closing", label: "Closing Script", icon: "🎯" },
                         { key: "compliance", label: "Compliance", icon: "✅" },
@@ -613,6 +615,47 @@ export default function Home() {
                           <p className="text-xs text-[#D4A017] font-semibold mb-2">💡 Kenji AI Setup Tip</p>
                           <p className="text-xs text-white/50 leading-relaxed">
                             In Kenji AI: <strong className="text-white/70">Agent Goals tab → click "Switch to Advanced Mode" → paste into the Prompt field</strong>. Use the "Evaluate" button to test before going live.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ACTION TRIGGERS TAB */}
+                    {activeTab === "triggers" && (
+                      <div className="step-enter">
+                        <div className="step-card-inactive rounded-xl p-5 mb-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#D4A017]/20 text-[#D4A017]">Action Triggers</span>
+                            <p className="text-sm font-semibold text-white/80">Agent Goals → Actions Tab</p>
+                          </div>
+                          <p className="text-xs text-white/40 mb-4">Copy each triggerPrompt exactly as written into Kenji AI's Actions tab. These fix the evaluator's "Trigger Clarity" and "Information Gathering" flags.</p>
+                          <div className="space-y-3">
+                            {generatedPrompt.actionTriggers.map((trigger, i: number) => (
+                              <div key={i} className="bg-white/3 rounded-lg p-4 border border-white/5">
+                                <div className="flex items-center justify-between mb-2">
+                                  <p className="text-xs font-bold text-[#D4A017]">{trigger.name}</p>
+                                  <button
+                                    onClick={() => handleCopy(`Action: ${trigger.action}\n\nTrigger Prompt:\n${trigger.triggerPrompt}\n\nNotes: ${trigger.notes}`, `trigger-${i}`)}
+                                    className="flex items-center gap-1 text-xs text-white/30 hover:text-white/60 transition-colors border border-white/10 rounded px-2 py-1 hover:border-white/20"
+                                  >
+                                    {copied === `trigger-${i}` ? <Check size={10} /> : <Copy size={10} />}
+                                    Copy
+                                  </button>
+                                </div>
+                                <p className="text-xs text-white/30 uppercase tracking-wide mb-1">Action</p>
+                                <p className="text-xs text-white/60 mb-3 font-mono">{trigger.action}</p>
+                                <p className="text-xs text-white/30 uppercase tracking-wide mb-1">Trigger Prompt (paste exactly)</p>
+                                <p className="text-xs text-white/60 leading-relaxed mb-3 italic">{trigger.triggerPrompt}</p>
+                                <p className="text-xs text-white/30 uppercase tracking-wide mb-1">Setup Note</p>
+                                <p className="text-xs text-white/45 leading-relaxed">{trigger.notes}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="bg-[#D4A017]/8 border border-[#D4A017]/20 rounded-lg p-4">
+                          <p className="text-xs text-[#D4A017] font-semibold mb-2">⚡ Kenji AI Setup Tip</p>
+                          <p className="text-xs text-white/50 leading-relaxed">
+                            In Kenji AI: <strong className="text-white/70">Agent Goals → Actions tab → Add Action</strong> → paste the Trigger Prompt into the "When" field and configure the corresponding action. Add all 8 triggers for full coverage.
                           </p>
                         </div>
                       </div>
@@ -722,6 +765,7 @@ export default function Home() {
                             "\n\n=== OBJECTION HANDLERS (Reference) ===\n" + generatedPrompt.objectionHandlers.join("\n\n"),
                             "\n\n=== CLOSING SCRIPT (Reference) ===\n" + generatedPrompt.closingScript,
                             "\n\n=== COMPLIANCE CHECKLIST ===\n" + generatedPrompt.complianceChecklist.join("\n"),
+                            "\n\n=== ACTION TRIGGERS ===\n" + generatedPrompt.actionTriggers.map((t: {name: string; triggerPrompt: string; action: string; notes: string}) => `${t.name}\nAction: ${t.action}\nTrigger: ${t.triggerPrompt}\nNotes: ${t.notes}`).join("\n\n"),
                             "\n\n=== KENJI AI SETUP NOTES ===\n" + generatedPrompt.setupNotes.join("\n"),
                           ].join("\n"),
                           "all"

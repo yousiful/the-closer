@@ -4,8 +4,14 @@
 // Advanced Mode, fully TCPA/FCC compliant, with the Batman "Burn the Boats"
 // closing methodology embedded in the objection handling section.
 //
-// Kenji AI Prompt Structure (per official docs):
-//   ROLE → TASK (Script Flow) → GUIDELINES (Guardrails)
+// EVALUATOR FIXES (v2):
+//   1. Information Gathering — explicit name/email extraction with custom vars
+//   2. TTS Optimization — prices spoken as words, no symbols or awkward numbers
+//   3. Guarantee Boundaries — explicit "do not promise results" guardrail
+//   4. Action Trigger Clarity — precise triggerPrompt strings for each action
+//
+// Kenji AI Prompt Structure:
+//   ROLE → INFORMATION GATHERING → TASK (Script Flow) → GUIDELINES (Guardrails)
 //
 // Compliance requirements embedded:
 //   - Business ID at call start (TCPA)
@@ -26,6 +32,10 @@ export interface BusinessInfo {
   commonObjections: string;
   callPurpose: "book_appointment" | "qualify_lead" | "follow_up" | "close_sale";
   bookingCalendar: boolean;
+  // New fields for evaluator compliance
+  trialLink?: string;
+  websiteUrl?: string;
+  guaranteePolicy?: string;
 }
 
 export interface CloserPersonality {
@@ -40,8 +50,9 @@ export interface KenjiAIPromptPackage {
   initialGreeting: string;
   // Paste into: Agent Goals → Advanced Mode → Prompt field
   mainPrompt: string;
+  // Action triggers for Kenji AI workflow setup
+  actionTriggers: ActionTrigger[];
   // Reference card for Kenji AI setup
-
   setupNotes: string[];
   // Objection handlers (embedded in main prompt, shown separately for reference)
   objectionHandlers: string[];
@@ -49,6 +60,45 @@ export interface KenjiAIPromptPackage {
   closingScript: string;
   // Compliance checklist
   complianceChecklist: string[];
+}
+
+export interface ActionTrigger {
+  name: string;
+  triggerPrompt: string;
+  action: string;
+  notes: string;
+}
+
+// ============================================================
+// TTS Price Formatter — converts "$12,000 one-time" to
+// "twelve thousand dollars one time" for natural speech
+// ============================================================
+function formatPriceForTTS(price: string): string {
+  if (!price.trim()) return "discussed during the call";
+
+  return price
+    // Remove dollar signs
+    .replace(/\$/g, "")
+    // Convert numbers with commas to words
+    .replace(/(\d{1,3}(?:,\d{3})*)/g, (match) => {
+      const num = parseInt(match.replace(/,/g, ""), 10);
+      if (num >= 1000000) return `${(num / 1000000).toFixed(1).replace(".0", "")} million`;
+      if (num >= 1000) return `${(num / 1000).toFixed(1).replace(".0", "")} thousand`;
+      return num.toString();
+    })
+    // Replace common symbols with words
+    .replace(/\+/g, " plus ")
+    .replace(/\//g, " or ")
+    .replace(/%/g, " percent")
+    .replace(/\bmo\b/gi, "month")
+    .replace(/\byr\b/gi, "year")
+    .replace(/\bsetup\b/gi, "setup")
+    .replace(/\bone-time\b/gi, "one time")
+    .replace(/\blifetime\b/gi, "for life")
+    .replace(/\bperformance fee\b/gi, "performance fee")
+    // Clean up extra spaces
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 const BURN_THE_BOATS_OBJECTION = `OBJECTION: "Can we split the payment?" or "Let me think about it" or "I need to do it later"
@@ -86,11 +136,66 @@ export function generateKenjiAIPrompt(
   };
 
   const callPurposeLabel = callPurposeMap[business.callPurpose];
+  const ttsPricing = formatPriceForTTS(business.price);
 
   // ============================================================
   // INITIAL GREETING (separate Kenji AI field)
   // ============================================================
   const initialGreeting = `Hi, is this {{contact.first_name}}? Hey, this is ${personality.name} calling from ${business.businessName}. I'm reaching out because you recently showed interest in ${business.productService}. Do you have just a couple minutes?`;
+
+  // ============================================================
+  // ACTION TRIGGERS — precise triggerPrompt strings for Kenji AI
+  // ============================================================
+  const actionTriggers: ActionTrigger[] = [
+    {
+      name: "Book Appointment",
+      triggerPrompt: `When the contact agrees to schedule a call, meeting, or appointment, or says "yes let's do it", "book me in", "what times do you have", or "I'm ready to get started".`,
+      action: "Book Appointment Slot (connect to calendar)",
+      notes: "Collect {{contact.first_name}} and {{contact.email}} before triggering. Confirm the slot verbally.",
+    },
+    {
+      name: "Extract Contact Info",
+      triggerPrompt: `When the contact's name or email has not yet been confirmed, or when you need to send a confirmation, link, or follow-up to them.`,
+      action: "Extract name/email — update contact record",
+      notes: "Ask: 'Just to make sure I have the right info — what's the best email to send that to?' Then extract and save.",
+    },
+    {
+      name: "Send Trial Link",
+      triggerPrompt: `When the contact asks to try the product, requests a demo link, says "send me the trial", "can I test it", "I want to see it first", or "send me the link to try it".`,
+      action: `Send SMS/email with trial or demo link${business.trialLink ? ": " + business.trialLink : ""}`,
+      notes: "Confirm their email or phone before sending. Say: 'I'll send that over right now — you should get it in about 30 seconds.'",
+    },
+    {
+      name: "Send Website / More Info",
+      triggerPrompt: `When the contact asks for more information, says "send me your website", "can you email me details", or "I want to read more about it before deciding".`,
+      action: `Send SMS/email with website link${business.websiteUrl ? ": " + business.websiteUrl : ""}`,
+      notes: "After sending, say: 'I'll send that over now. But real quick — if everything checks out, is this something you'd move forward with?'",
+    },
+    {
+      name: "Transfer to Human",
+      triggerPrompt: `When the contact asks to speak to a real person, a manager, or a human, or says "I want to talk to someone", "can I speak to a person", or "let me talk to your team".`,
+      action: "Live call transfer to sales team",
+      notes: "Say: 'Absolutely — let me connect you with someone from our team right now. One moment.'",
+    },
+    {
+      name: "Add to DNC / Opt-Out",
+      triggerPrompt: `When the contact says "remove me", "take me off your list", "don't call me again", "stop calling", or any variation of requesting to be removed.`,
+      action: "Set contact DND = TRUE (Voice). End call.",
+      notes: "Say: 'Absolutely, I'll remove you right now. You won't hear from us again. Have a great day.' Then end the call immediately.",
+    },
+    {
+      name: "Mark Not Interested",
+      triggerPrompt: `When the contact clearly states they are not interested, says "no thanks", "not for me", "we're all set", or ends the conversation without booking.`,
+      action: "Update contact field: Disposition = Not Interested. Trigger re-engagement workflow (30 days).",
+      notes: "Say: 'No problem at all — I appreciate your time. Have a great day.' Do NOT continue pitching.",
+    },
+    {
+      name: "Schedule Callback",
+      triggerPrompt: `When the contact asks to be called back at a different time, says "call me later", "try me again on [day]", or "I'm busy right now".`,
+      action: "Update contact field: Callback Date/Time. Trigger callback workflow.",
+      notes: "Ask: 'What day and time works best for you?' Confirm the time zone. Say: 'Perfect — I'll have someone reach out then.'",
+    },
+  ];
 
   // ============================================================
   // MAIN PROMPT — Kenji AI Advanced Mode Format
@@ -113,6 +218,24 @@ CRITICAL VOICE RULES:
 
 ---
 
+## INFORMATION GATHERING
+
+Before booking, sending anything, or completing any action, you MUST confirm the following:
+
+1. CONTACT NAME: Confirm their first name at the start of the call. If {{contact.first_name}} is blank or "there", ask: "Just to make sure I have the right person — what's your first name?"
+
+2. EMAIL ADDRESS: Before sending any link, confirmation, or follow-up, ask: "What's the best email to send that to?" Then extract and save it as {{contact.email}}.
+
+3. QUALIFYING QUESTIONS: Before pitching, ask at least 2 of these to personalize your approach:
+   - "What's your biggest challenge right now with [relevant area for ${business.industry}]?"
+   - "How long have you been dealing with that?"
+   - "What have you already tried?"
+   - "What would solving this be worth to you?"
+
+Use their answers to personalize every response. Repeat their words back to them.
+
+---
+
 ## COMPLIANCE OPENING
 
 At the very start of every call, after the contact confirms who they are, say:
@@ -130,7 +253,9 @@ Then proceed with the call purpose.
 - What we offer: ${business.productService}
 - Who we help: ${business.targetCustomer}
 - The transformation: ${business.mainBenefit}
-- Investment: ${business.price || "discussed on the call"}
+- Investment: ${ttsPricing}
+
+PRICING RULE: When discussing pricing on the call, speak the numbers as words. For example, say "twelve thousand dollars one time" not "dollar sign twelve comma zero zero zero". Never read symbols out loud.
 
 ---
 
@@ -201,29 +326,35 @@ SAY: "Totally. What specifically do you need to think through? There's usually o
 OBJECTION: "Send me more info"
 SAY: "Happy to. But real quick — if the info checks out, is this something you'd move forward with?"
 
+OBJECTION: "What's the guarantee?"
+SAY: "Great question. I can't promise specific results because every business is different — what I can tell you is [describe the process/support, not outcomes]. What I've seen is [general social proof without guarantees]."
+GUARDRAIL: Do NOT promise specific revenue numbers, ROI percentages, or guaranteed outcomes. If pressed, say: "I'd rather under-promise and over-deliver — what I can commit to is [process/support]."
+
 ---
 
 ## CALL ENDINGS
 
 ### BOOKED / CLOSED:
 "Perfect. You're all set for [date/time]. I'll send a confirmation to {{contact.email}}. Looking forward to it."
-→ Trigger workflow: [Appointment Booked / Sale Closed]
+→ ACTION TRIGGER: "Book Appointment" — fires when contact agrees to schedule
 
 ### NOT INTERESTED (genuine):
 "No problem at all. I appreciate your time. Have a great [day/evening]."
-→ Update contact field: Disposition = Not Interested
-→ Do NOT call again
+→ ACTION TRIGGER: "Mark Not Interested" — fires when contact clearly declines
 
 ### CALLBACK REQUESTED:
 "Absolutely. What day and time works best for you?"
-→ Update contact field: Callback Date/Time
-→ Trigger workflow: [Schedule Callback]
+→ ACTION TRIGGER: "Schedule Callback" — fires when contact asks to be called back later
 
 ### OPT-OUT REQUESTED:
 If they say "remove me", "take me off your list", "don't call me again", or similar:
 "Absolutely, I'll remove you right now. You won't hear from us again. Have a great day."
-→ Update contact field: DND = TRUE (Voice)
-→ End call immediately. Do NOT continue pitching.
+→ ACTION TRIGGER: "Add to DNC / Opt-Out" — fires immediately on any opt-out phrase. End call.
+
+### SEND TRIAL / DEMO:
+If they ask to try the product or see a demo:
+"I'll send that over right now — you should get it in about 30 seconds."
+→ ACTION TRIGGER: "Send Trial Link" — fires when contact requests trial or demo link
 
 ---
 
@@ -233,7 +364,9 @@ If they say "remove me", "take me off your list", "don't call me again", or simi
 - NEVER leave a voicemail with pricing or specific offer details
 - NEVER argue with a prospect — if they're hostile, end the call politely
 - NEVER make up information about the product or pricing
-- NEVER promise results you cannot guarantee
+- NEVER promise specific results, revenue numbers, ROI percentages, or guaranteed outcomes. If asked about guarantees, describe the process and support only — not outcomes.
+- NEVER read dollar signs, percent signs, or number formatting symbols out loud — always speak numbers as words
+- ALWAYS confirm the contact's name and email before booking or sending anything
 - ALWAYS end the call with a clear next step — booked, not interested, or callback
 - ALWAYS honor opt-out requests immediately and permanently
 - If asked about competitors, say: "I'm not the best person to compare — I can only speak to what we do."
@@ -250,6 +383,7 @@ If they say "remove me", "take me off your list", "don't call me again", or simi
     `"Can we split the payment?" → [Batman Well Story → "The rope is the problem. What puts you in the best position?"]`,
     `"I've tried things like this before" → "Tell me what happened. I want to make sure we don't repeat it."`,
     `"Send me more info" → "Happy to. But if the info checks out — is this something you'd move on?"`,
+    `"What's the guarantee?" → "I can't promise specific results — what I can commit to is [process/support]."`,
     `"Not interested" → "No worries. Can I ask what changed since you first reached out?"`,
   ];
 
@@ -265,22 +399,32 @@ What puts you in the best position to actually get that result: keeping things t
 [SILENCE. Do not speak. The next person who talks, loses.]
 
 [If they commit] → "Perfect. Let's get you locked in."
-[If they hesitate] → "What's the one thing that's holding you back right now?"`;
+[If they hesitate] → "What's the one thing that's holding you back right now?"
+
+---
+
+THE BATMAN CLOSE (for split payment / hesitation):
+
+"You know the Batman story — the one where Bane breaks his back and he's at the bottom of that well? He tries the climb with a rope. Doesn't make it. Third time — no rope. If he falls, he's done. That's when he makes the jump. The rope was the problem.
+
+So honestly — what puts you in the best spot: keeping the safety net, or going all in?"
+
+[SILENCE — wait for their answer.]`;
 
   // ============================================================
   // SETUP NOTES
   // ============================================================
   const setupNotes = [
-    `INITIAL GREETING FIELD: Paste the greeting into Agent Details → "Initial Greeting Message" (NOT in the main prompt)`,
-    `MAIN PROMPT: Paste into Agent Goals → Advanced Mode → Prompt field`,
-    `VARIABLES: {{contact.first_name}} and {{contact.email}} will auto-populate from your CRM contact record`,
-    `VOICE SELECTION: Choose a natural-sounding voice — avoid robotic tones. Test with a real call before going live`,
-    `CALL TRANSFER: Set up a "Call Transfer" action in Agent Goals for when the prospect asks to speak to a human`,
-    `WORKFLOW TRIGGERS: Create workflows for: Appointment Booked, Not Interested, Callback Requested, DNC Added`,
-    `COMPLIANCE: Ensure all contacts have documented opt-in via Kenji AI forms before adding to outbound workflow`,
-    `TESTING: Add your own number to the workflow first. Review the transcript in the Voice AI dashboard before going live`,
-    `CALL WINDOW: Kenji AI auto-enforces 10AM–6PM in contact's timezone — no action needed on your end`,
-    `KYC: Complete Know Your Customer verification in AI Agents → Voice AI → Enable Outbound Calls before first use`,
+    `INITIAL GREETING: Paste into Agent Details → "Initial Greeting Message" (NOT in the main prompt field)`,
+    `MAIN PROMPT: Paste into Agent Goals → Advanced Mode → Prompt field. Click "Evaluate" to test before going live.`,
+    `ACTION TRIGGERS: Go to Agent Goals → Actions tab. Add each action from the "Action Triggers" tab above. Copy the triggerPrompt exactly as written.`,
+    `CUSTOM VARIABLES: {{contact.first_name}} and {{contact.email}} auto-populate from your CRM contact record. Ensure these fields exist on your contact object.`,
+    `VOICE SELECTION: Choose a natural-sounding voice — avoid robotic tones. Test with your own number first.`,
+    `CALL TRANSFER: Add a "Live Call Transfer" action in Agent Goals for when the prospect asks to speak to a human.`,
+    `WORKFLOW TRIGGERS: Create workflows for: Appointment Booked, Not Interested, Callback Requested, DNC Added, Trial Link Sent.`,
+    `COMPLIANCE: Ensure all contacts have documented opt-in via Kenji AI forms before adding to outbound workflow.`,
+    `TESTING: Add your own number to the workflow first. Review the full transcript in the Voice AI dashboard before going live.`,
+    `KYC: Complete Know Your Customer verification in AI Agents → Voice AI → Enable Outbound Calls before first use.`,
   ];
 
   // ============================================================
@@ -291,7 +435,7 @@ What puts you in the best position to actually get that result: keeping things t
     "✅ All contacts have documented opt-in via Kenji AI forms (required for TCPA compliance)",
     "✅ Business name identified at start of every call (TCPA requirement)",
     "✅ Verbal opt-out mechanism included ('say remove me at any time')",
-    "✅ DND contacts automatically blocked by Kenji AI — no action needed",
+    "✅ DNC contacts automatically blocked by Kenji AI — no action needed",
     "✅ Call window 10AM–6PM enforced by Kenji AI — no action needed",
     "✅ US phone numbers only (Kenji AI restriction)",
     "✅ Max 4 calls per contact per 14 days (Kenji AI auto-enforced)",
@@ -299,11 +443,14 @@ What puts you in the best position to actually get that result: keeping things t
     "✅ No pricing or offer details left in voicemails",
     "✅ National DNC Registry honored (verify contacts before importing)",
     "✅ Call recordings disclosed at start of call",
+    "✅ No specific results or ROI guarantees made on the call",
+    "✅ Contact name and email confirmed before booking or sending links",
   ];
 
   return {
     initialGreeting,
     mainPrompt,
+    actionTriggers,
     setupNotes,
     objectionHandlers,
     closingScript,
