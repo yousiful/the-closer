@@ -11,7 +11,9 @@ import { cn } from "@/lib/utils";
 import EmberField from "@/components/EmberField";
 import StepIndicator from "@/components/StepIndicator";
 import BatmanQuote from "@/components/BatmanQuote";
+import PromptModal from "@/components/PromptModal";
 import { useTypewriter } from "@/hooks/useTypewriter";
+import { scrapeWebsite } from "@/lib/scrapeWebsite";
 import {
   generateKenjiAIPrompt,
   TONE_OPTIONS,
@@ -34,6 +36,7 @@ import {
   RotateCcw,
   ShieldCheck,
   Phone,
+  Maximize2,
 } from "lucide-react";
 
 const WIZARD_STEPS = [
@@ -75,6 +78,8 @@ export default function Home() {
   const [copied, setCopied] = useState<string | null>(null);
   const [promptStarted, setPromptStarted] = useState(false);
   const [activeTab, setActiveTab] = useState<"main" | "greeting" | "objections" | "closing" | "compliance" | "triggers">("greeting");
+  const [isScraping, setIsScraping] = useState(false);
+  const [modal, setModal] = useState<{ open: boolean; title: string; badge?: string; subtitle?: string; content: string; copyKey: string; tip?: string } | null>(null);
 
   const { displayed: typewriterText, done: typewriterDone } = useTypewriter(
     generatedPrompt?.mainPrompt ?? "",
@@ -139,6 +144,40 @@ export default function Home() {
       toast.error("Failed to copy. Please select and copy manually.");
     }
   }, []);
+
+  const handleScrape = async () => {
+    if (!urlInput.trim()) {
+      toast.error("Please enter a URL first.");
+      return;
+    }
+    setIsScraping(true);
+    toast.info("Scraping website...");
+    try {
+      const info = await scrapeWebsite(urlInput);
+      setBusiness((prev) => ({
+        ...prev,
+        businessName: info.businessName || prev.businessName,
+        industry: info.industry || prev.industry,
+        productService: info.productService || prev.productService,
+        targetCustomer: info.targetCustomer || prev.targetCustomer,
+        mainBenefit: info.mainBenefit || prev.mainBenefit,
+        price: info.price || prev.price,
+        websiteUrl: info.websiteUrl || prev.websiteUrl,
+      }));
+      setInputMethod("manual");
+      toast.success("Website scraped! Review and edit the fields below.");
+    } catch (err) {
+      toast.error("Could not scrape that URL. Try pasting your text instead.");
+    } finally {
+      setIsScraping(false);
+    }
+  };
+
+  const openModal = (title: string, content: string, copyKey: string, badge?: string, subtitle?: string, tip?: string) => {
+    setModal({ open: true, title, badge, subtitle, content, copyKey, tip });
+  };
+
+  const closeModal = () => setModal(null);
 
   const handleReset = () => {
     setCurrentStep(1);
@@ -310,10 +349,13 @@ export default function Home() {
                         className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-[#D4A017]/50 transition-colors"
                       />
                       <button
-                        onClick={() => toast.info("URL scraping coming soon — use Enter Manually for now.")}
-                        className="px-5 py-3 bg-[#D4A017] text-[#0A0B14] rounded-lg text-sm font-semibold hover:bg-[#F59E0B] transition-colors"
+                        onClick={handleScrape}
+                        disabled={isScraping}
+                        className="px-5 py-3 bg-[#D4A017] text-[#0A0B14] rounded-lg text-sm font-semibold hover:bg-[#F59E0B] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 min-w-[90px] justify-center"
                       >
-                        Scrape
+                        {isScraping ? (
+                          <><span className="inline-block w-3 h-3 border-2 border-[#0A0B14]/40 border-t-[#0A0B14] rounded-full animate-spin" />Scraping...</>
+                        ) : "Scrape"}
                       </button>
                     </div>
                     <button onClick={() => setInputMethod("manual")} className="mt-3 text-xs text-[#D4A017]/60 hover:text-[#D4A017] transition-colors">
@@ -583,6 +625,14 @@ export default function Home() {
                             content={generatedPrompt.initialGreeting}
                             onCopy={() => handleCopy(generatedPrompt.initialGreeting, "greeting")}
                             copied={copied === "greeting"}
+                            onExpand={() => openModal(
+                              "Initial Greeting Message",
+                              generatedPrompt.initialGreeting,
+                              "greeting-modal",
+                              "Kenji Field",
+                              "Agent Details → Initial Greeting Message",
+                              "In Kenji AI: <strong>AI Agents → Voice AI → Create Agent → Agent Details tab</strong> → paste into \"Initial Greeting Message\". This fires before your main prompt kicks in."
+                            )}
                           />
                         </div>
                         <div className="bg-[#D4A017]/8 border border-[#D4A017]/20 rounded-lg p-4">
@@ -609,6 +659,14 @@ export default function Home() {
                             onCopy={() => handleCopy(generatedPrompt.mainPrompt, "main")}
                             copied={copied === "main"}
                             tall
+                            onExpand={typewriterDone ? () => openModal(
+                              "Main Prompt",
+                              generatedPrompt.mainPrompt,
+                              "main-modal",
+                              "Main Prompt",
+                              "Agent Goals → Advanced Mode → Prompt",
+                              "In Kenji AI: <strong>Agent Goals tab → click \"Switch to Advanced Mode\" → paste into the Prompt field</strong>. Use the \"Evaluate\" button to test before going live."
+                            ) : undefined}
                           />
                         </div>
                         <div className="bg-[#D4A017]/8 border border-[#D4A017]/20 rounded-lg p-4">
@@ -703,6 +761,14 @@ export default function Home() {
                             content={generatedPrompt.closingScript}
                             onCopy={() => handleCopy(generatedPrompt.closingScript, "closing")}
                             copied={copied === "closing"}
+                            onExpand={() => openModal(
+                              "The Burn the Boats Closing Sequence",
+                              generatedPrompt.closingScript,
+                              "closing-modal",
+                              "The Close",
+                              "Batman Well Story — embed in training, not just the AI",
+                              "After asking the closing question — silence. The next person who speaks, loses."
+                            )}
                           />
                         </div>
                         <div className="relative overflow-hidden rounded-xl border border-[#D4A017]/25 bg-gradient-to-br from-[#D4A017]/8 to-transparent p-5">
@@ -792,6 +858,21 @@ export default function Home() {
         </div>
       </main>
 
+      {/* Prompt Modal */}
+      {modal && (
+        <PromptModal
+          isOpen={modal.open}
+          onClose={closeModal}
+          title={modal.title}
+          badge={modal.badge}
+          subtitle={modal.subtitle}
+          content={modal.content}
+          onCopy={() => handleCopy(modal.content, modal.copyKey)}
+          copied={copied === modal.copyKey}
+          tip={modal.tip}
+        />
+      )}
+
       {/* Footer */}
       <footer className="relative z-10 border-t border-white/8 mt-16 py-6">
         <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -841,19 +922,38 @@ function FormField({ label, placeholder, value, onChange, multiline = false }: {
   );
 }
 
-function PromptBox({ content, isStreaming = false, onCopy, copied, tall = false }: { content: string; isStreaming?: boolean; onCopy: () => void; copied: boolean; tall?: boolean }) {
+function PromptBox({ content, isStreaming = false, onCopy, copied, tall = false, onExpand }: { content: string; isStreaming?: boolean; onCopy: () => void; copied: boolean; tall?: boolean; onExpand?: () => void }) {
   return (
-    <div className="relative">
-      <button
-        onClick={onCopy}
-        className="absolute top-3 right-3 flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors border border-white/10 rounded-lg px-3 py-1.5 hover:border-white/20 bg-black/40 z-10"
-      >
-        {copied ? <Check size={12} /> : <Copy size={12} />}
-        {copied ? "Copied!" : "Copy"}
-      </button>
-      <div className={cn("bg-black/30 rounded-lg p-4 overflow-y-auto", tall ? "max-h-96" : "max-h-64", isStreaming && "typewriter-cursor")}>
-        <pre className="text-xs text-white/65 whitespace-pre-wrap font-mono leading-relaxed pr-16">{content}</pre>
+    <div className="relative group">
+      <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
+        {onExpand && (
+          <button
+            onClick={onExpand}
+            className="flex items-center gap-1 text-xs text-white/30 hover:text-white/70 transition-colors border border-white/10 rounded-lg px-2.5 py-1.5 hover:border-white/20 bg-black/40"
+            title="Expand"
+          >
+            <Maximize2 size={11} />
+            <span>Expand</span>
+          </button>
+        )}
+        <button
+          onClick={onCopy}
+          className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors border border-white/10 rounded-lg px-3 py-1.5 hover:border-white/20 bg-black/40"
+        >
+          {copied ? <Check size={12} /> : <Copy size={12} />}
+          {copied ? "Copied!" : "Copy"}
+        </button>
       </div>
+      <div
+        className={cn("bg-black/30 rounded-lg p-4 overflow-y-auto cursor-pointer hover:bg-black/40 transition-colors", tall ? "max-h-96" : "max-h-64", isStreaming && "typewriter-cursor")}
+        onClick={onExpand}
+        title={onExpand ? "Click to expand" : undefined}
+      >
+        <pre className="text-xs text-white/65 whitespace-pre-wrap font-mono leading-relaxed pr-32">{content}</pre>
+      </div>
+      {onExpand && (
+        <p className="text-xs text-white/20 mt-1 text-center">Click to expand full screen</p>
+      )}
     </div>
   );
 }
