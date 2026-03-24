@@ -81,11 +81,9 @@ export default function Home() {
   const [isScraping, setIsScraping] = useState(false);
   const [modal, setModal] = useState<{ open: boolean; title: string; badge?: string; subtitle?: string; content: string; copyKey: string; tip?: string } | null>(null);
 
-  const { displayed: typewriterText, done: typewriterDone } = useTypewriter(
-    generatedPrompt?.mainPrompt ?? "",
-    10,
-    promptStarted && activeTab === "main"
-  );
+  // Typewriter removed — prompt appears instantly
+  const typewriterDone = true;
+  const typewriterText = generatedPrompt?.mainPrompt ?? "";
 
   const completeStep = (step: number) => {
     setCompletedSteps((prev) => Array.from(new Set([...prev, step])));
@@ -122,16 +120,10 @@ export default function Home() {
       return;
     }
     completeStep(3);
-    setIsGenerating(true);
-    setTimeout(() => {
-      const result = generateKenjiAIPrompt(business, personality);
-      setGeneratedPrompt(result);
-      setIsGenerating(false);
-      setTimeout(() => {
-        setPromptStarted(true);
-        setActiveTab("greeting");
-      }, 300);
-    }, 1800);
+    const result = generateKenjiAIPrompt(business, personality);
+    setGeneratedPrompt(result);
+    setPromptStarted(true);
+    setActiveTab("greeting");
   };
 
   const handleCopy = useCallback(async (text: string, key: string) => {
@@ -654,19 +646,19 @@ export default function Home() {
                           </div>
                           <p className="text-xs text-white/40 mb-4">The full system prompt. Paste into Kenji AI's Advanced Mode prompt field. Contains: Role, Compliance Opening, Script Flow, Objection Handling, and Guardrails.</p>
                           <PromptBox
-                            content={typewriterDone ? generatedPrompt.mainPrompt : typewriterText}
-                            isStreaming={!typewriterDone}
+                            content={generatedPrompt.mainPrompt}
+                            isStreaming={false}
                             onCopy={() => handleCopy(generatedPrompt.mainPrompt, "main")}
                             copied={copied === "main"}
                             tall
-                            onExpand={typewriterDone ? () => openModal(
+                            onExpand={() => openModal(
                               "Main Prompt",
                               generatedPrompt.mainPrompt,
                               "main-modal",
                               "Main Prompt",
-                              "Agent Goals → Advanced Mode → Prompt",
-                              "In Kenji AI: <strong>Agent Goals tab → click \"Switch to Advanced Mode\" → paste into the Prompt field</strong>. Use the \"Evaluate\" button to test before going live."
-                            ) : undefined}
+                              "Agent Goals > Advanced Mode > Prompt",
+                              "In Kenji AI: Agent Goals tab - click Switch to Advanced Mode - paste into the Prompt field. Use the Evaluate button to test before going live."
+                            )}
                           />
                         </div>
                         <div className="bg-[#D4A017]/8 border border-[#D4A017]/20 rounded-lg p-4">
