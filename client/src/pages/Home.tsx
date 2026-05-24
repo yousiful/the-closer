@@ -1,50 +1,22 @@
-// =============================================================================
-// THE CLOSER — Main Page (Kenji AI Native Outbound Caller Edition)
-// Design: Premium SaaS / Dark Intelligence
-// Generates TCPA-compliant Kenji AI Voice outbound caller prompts with the
-// Batman "Burn the Boats" closing methodology.
-// =============================================================================
+'use client';
 
-import { useState, useCallback } from "react";
-import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { Check, Copy, FileText, Loader2, Maximize2, X } from "lucide-react";
+import { useCallback, useState } from "react";
+import { toast } from "sonner";
+import BatmanQuote from "@/components/BatmanQuote";
 import EmberField from "@/components/EmberField";
 import StepIndicator from "@/components/StepIndicator";
-import BatmanQuote from "@/components/BatmanQuote";
 import PromptModal from "@/components/PromptModal";
-import { useTypewriter } from "@/hooks/useTypewriter";
+import { generateKenjiAIPrompt, TONE_OPTIONS, CALL_PURPOSE_OPTIONS, type BusinessInfo, type CloserPersonality, type KenjiAIPromptPackage } from "@/lib/generatePrompt";
 import { scrapeWebsite } from "@/lib/scrapeWebsite";
-import {
-  generateKenjiAIPrompt,
-  TONE_OPTIONS,
-  CALL_PURPOSE_OPTIONS,
-  SPECIALTY_OPTIONS,
-  type BusinessInfo,
-  type CloserPersonality,
-  type KenjiAIPromptPackage,
-} from "@/lib/generatePrompt";
-import {
-  Copy,
-  Check,
-  ChevronRight,
-  ArrowRight,
-  Sparkles,
-  Building2,
-  Sliders,
-  Zap,
-  FileText,
-  RotateCcw,
-  ShieldCheck,
-  Phone,
-  Maximize2,
-} from "lucide-react";
-
-const WIZARD_STEPS = [
-  { id: 1, label: "Business Info", sublabel: "Tell us about your offer" },
-  { id: 2, label: "Edit & Refine", sublabel: "Dial in the details" },
-  { id: 3, label: "Closer Skills", sublabel: "Customize your agent" },
-  { id: 4, label: "Kenji Prompt", sublabel: "Ready to deploy" },
-];
+import { useTypewriter } from "@/hooks/useTypewriter";
 
 const DEFAULT_BUSINESS: BusinessInfo = {
   businessName: "",
@@ -55,15 +27,72 @@ const DEFAULT_BUSINESS: BusinessInfo = {
   price: "",
   commonObjections: "",
   callPurpose: "book_appointment",
-  bookingCalendar: true,
+  bookingCalendar: false,
+  trialLink: "",
+  websiteUrl: "",
+  guaranteePolicy: "",
 };
 
 const DEFAULT_PERSONALITY: CloserPersonality = {
-  name: "Alex",
+  name: "",
   tone: "confident",
   specialties: [],
   closingStyle: "batman",
 };
+
+type StepHeaderProps = {
+  icon: React.ReactNode;
+  step: number;
+  title: string;
+  subtitle: string;
+};
+
+function StepHeader({ icon, step, title, subtitle }: StepHeaderProps) {
+  return (
+    <div className="mb-8">
+      <div className="flex items-center gap-3 mb-3">
+        <div className="w-10 h-10 rounded-full bg-[#D4A017]/20 flex items-center justify-center text-[#D4A017]">
+          {icon}
+        </div>
+        <div>
+          <p className="text-xs text-[#D4A017] font-bold uppercase tracking-wider">STEP {step} OF 4</p>
+          <h2 className="text-2xl font-bold text-white">{title}</h2>
+        </div>
+      </div>
+      <p className="text-sm text-white/50 ml-13">{subtitle}</p>
+    </div>
+  );
+}
+
+interface PromptBoxProps {
+  content: string;
+  isStreaming?: boolean;
+  onCopy: () => void;
+  copied: boolean;
+  tall?: boolean;
+  onExpand?: () => void;
+}
+
+function PromptBox({ content, isStreaming, onCopy, copied, tall, onExpand }: PromptBoxProps) {
+  return (
+    <div className={cn("relative bg-white/3 border border-white/10 rounded-lg p-4 font-mono text-xs text-white/70 leading-relaxed overflow-hidden", tall ? "max-h-96" : "max-h-48")}>
+      <div className={cn("overflow-y-auto", tall ? "max-h-80" : "max-h-40")}>
+        <p className="whitespace-pre-wrap break-words">{content}</p>
+        {isStreaming && <span className="animate-pulse">▌</span>}
+      </div>
+      <div className="absolute top-2 right-2 flex gap-1">
+        {onExpand && (
+          <button onClick={onExpand} className="p-1.5 bg-white/5 hover:bg-white/10 rounded transition-colors" title="Expand">
+            <Maximize2 size={12} />
+          </button>
+        )}
+        <button onClick={onCopy} className="p-1.5 bg-white/5 hover:bg-white/10 rounded transition-colors" title="Copy">
+          {copied ? <Check size={12} /> : <Copy size={12} />}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function Home() {
   const [currentStep, setCurrentStep] = useState(1);
@@ -77,7 +106,6 @@ export default function Home() {
   const [generatedPrompt, setGeneratedPrompt] = useState<KenjiAIPromptPackage | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [promptStarted, setPromptStarted] = useState(false);
-  const [activeTab, setActiveTab] = useState<"main" | "greeting" | "objections" | "closing" | "compliance" | "triggers">("greeting");
   const [isScraping, setIsScraping] = useState(false);
   const [modal, setModal] = useState<{ open: boolean; title: string; badge?: string; subtitle?: string; content: string; copyKey: string; tip?: string } | null>(null);
 
@@ -123,7 +151,6 @@ export default function Home() {
     const result = generateKenjiAIPrompt(business, personality);
     setGeneratedPrompt(result);
     setPromptStarted(true);
-    setActiveTab("greeting");
   };
 
   const handleCopy = useCallback(async (text: string, key: string) => {
@@ -131,851 +158,665 @@ export default function Home() {
       await navigator.clipboard.writeText(text);
       setCopied(key);
       toast.success("Copied to clipboard!");
-      setTimeout(() => setCopied(null), 2500);
+      setTimeout(() => setCopied(null), 2000);
     } catch {
-      toast.error("Failed to copy. Please select and copy manually.");
+      toast.error("Failed to copy");
     }
   }, []);
 
-  const handleScrape = async () => {
+  const handleScrapeUrl = async () => {
     if (!urlInput.trim()) {
-      toast.error("Please enter a URL first.");
+      toast.error("Enter a URL to scrape");
       return;
     }
     setIsScraping(true);
-    toast.info("Scraping website...");
     try {
-      const info = await scrapeWebsite(urlInput);
+      const data = await scrapeWebsite(urlInput);
       setBusiness((prev) => ({
         ...prev,
-        businessName: info.businessName || prev.businessName,
-        industry: info.industry || prev.industry,
-        productService: info.productService || prev.productService,
-        targetCustomer: info.targetCustomer || prev.targetCustomer,
-        mainBenefit: info.mainBenefit || prev.mainBenefit,
-        price: info.price || prev.price,
-        websiteUrl: info.websiteUrl || prev.websiteUrl,
+        businessName: data.businessName || prev.businessName,
+        industry: data.industry || prev.industry,
+        productService: data.productService || prev.productService,
+        targetCustomer: data.targetCustomer || prev.targetCustomer,
+        mainBenefit: data.mainBenefit || prev.mainBenefit,
+        price: data.price || prev.price,
       }));
       setInputMethod("manual");
-      toast.success("Website scraped! Review and edit the fields below.");
-    } catch (err) {
-      toast.error("Could not scrape that URL. Try pasting your text instead.");
+      toast.success("Website scraped! Review and edit the fields.");
+    } catch {
+      toast.error("Failed to scrape website. Try entering manually.");
     } finally {
       setIsScraping(false);
     }
   };
 
   const openModal = (title: string, content: string, copyKey: string, badge?: string, subtitle?: string, tip?: string) => {
-    setModal({ open: true, title, badge, subtitle, content, copyKey, tip });
+    setModal({ open: true, title, content, copyKey, badge, subtitle, tip });
   };
 
   const closeModal = () => setModal(null);
 
-  const handleReset = () => {
-    setCurrentStep(1);
-    setCompletedSteps([]);
-    setBusiness(DEFAULT_BUSINESS);
-    setPersonality(DEFAULT_PERSONALITY);
-    setGeneratedPrompt(null);
-    setPromptStarted(false);
-    setIsGenerating(false);
-    setActiveTab("greeting");
-  };
-
-  const handleTextImport = () => {
-    if (!textInput.trim()) {
-      toast.error("Please paste your business description.");
-      return;
-    }
-    const lines = textInput.split("\n").filter(Boolean);
-    setBusiness((prev) => ({
-      ...prev,
-      businessName: prev.businessName || lines[0] || "",
-      productService: prev.productService || lines.slice(1).join(" ").slice(0, 300) || "",
-    }));
-    setInputMethod("manual");
-    toast.success("Text imported! Review and fill in any missing details.");
-  };
-
-  const updateBusiness = (field: keyof BusinessInfo, value: string | boolean) => {
-    setBusiness((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const toggleSpecialty = (s: string) => {
-    setPersonality((prev) => ({
-      ...prev,
-      specialties: prev.specialties.includes(s)
-        ? prev.specialties.filter((x) => x !== s)
-        : [...prev.specialties, s],
-    }));
-  };
-
   return (
-    <div className="min-h-screen relative overflow-x-hidden" style={{ background: "oklch(0.09 0.015 265)" }}>
-      {/* Background */}
-      <div
-        className="fixed inset-0 z-0 bg-cover bg-center opacity-20"
-        style={{ backgroundImage: `url(https://d2xsxph8kpxj0f.cloudfront.net/310519663145844820/D8d6P6JxN75EWVX5ZmECZm/closer-hero-bg-h8WFDLSCw2Ru2GDUKLVrky.webp)` }}
-      />
+    <div className="min-h-screen bg-[#0A0B14] text-white">
       <EmberField />
 
-      {/* Header */}
-      <header className="relative z-10 border-b border-white/8 backdrop-blur-sm bg-black/20">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img
-              src="https://d2xsxph8kpxj0f.cloudfront.net/310519663145844820/D8d6P6JxN75EWVX5ZmECZm/closer-fire-logo-FpAzV6cKZvopBi3MjgPhGs.png"
-              alt="The Closer"
-              className="w-10 h-10 object-contain"
-            />
-            <div>
-              <h1 className="text-xl font-bold text-white" style={{ fontFamily: "'Playfair Display', serif" }}>
-                The <span className="text-gold-gradient">Closer</span>
-              </h1>
-              <p className="text-xs text-white/40 -mt-0.5">Kenji AI Caller Builder</p>
-            </div>
+      <div className="relative z-10 container mx-auto py-12 px-4">
+        {/* Header */}
+        <div className="mb-12 text-center">
+          <div className="inline-block mb-4">
+            <div className="text-4xl">🔥</div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="hidden sm:flex items-center gap-1.5 text-xs text-white/30 border border-white/10 rounded-full px-3 py-1">
-              <Phone size={10} className="text-[#D4A017]" />
-              Kenji AI Caller · TCPA Compliant
-            </span>
-            {completedSteps.length > 0 && (
-              <button
-                onClick={handleReset}
-                className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors border border-white/10 rounded-full px-3 py-1 hover:border-white/20"
-              >
-                <RotateCcw size={12} />
-                Start Over
-              </button>
-            )}
-          </div>
-        </div>
-      </header>
-
-      {/* Main */}
-      <main className="relative z-10 max-w-6xl mx-auto px-6 py-10">
-        {/* Hero */}
-        <div className="text-center mb-12">
-          <p className="text-xs font-semibold text-[#D4A017] uppercase tracking-widest mb-3">
-            ✦ Kenji Native AI Outbound Caller ✦
-          </p>
-          <h2
-            className="text-4xl sm:text-5xl font-bold text-white mb-4 leading-tight"
-            style={{ fontFamily: "'Playfair Display', serif" }}
-          >
-            Build Your Kenji{" "}
-            <span className="text-gold-gradient">AI Closer</span>
-            <br />
-            <span className="text-white/60 text-3xl sm:text-4xl italic">in 4 minutes</span>
-          </h2>
-          <p className="text-white/50 max-w-xl mx-auto text-sm leading-relaxed">
-            Generate a TCPA-compliant, Kenji AI Caller–ready outbound caller prompt powered by the{" "}
-            <span className="text-[#D4A017]/80">Burn the Boats</span> closing methodology.
-            Drop it straight into Kenji AI Advanced Mode and go.
-          </p>
+          <h1 className="text-5xl font-bold mb-2">
+            The <span className="text-[#D4A017]">Closer</span>
+          </h1>
+          <p className="text-white/50">Kenji AI Caller Builder</p>
         </div>
 
-        {/* Wizard layout */}
-        <div className="flex gap-8 items-start">
-          {/* Step rail — desktop */}
-          <div className="hidden lg:block w-52 flex-shrink-0 sticky top-8">
-            <StepIndicator steps={WIZARD_STEPS} currentStep={currentStep} completedSteps={completedSteps} />
-          </div>
+        {/* Step Indicator */}
+        <StepIndicator
+          currentStep={currentStep}
+          completedSteps={completedSteps}
+          steps={[
+            { id: 1, label: "Business Info", sublabel: "Tell us about your offer" },
+            { id: 2, label: "Edit & Refine", sublabel: "Dial in the details" },
+            { id: 3, label: "Closer Skills", sublabel: "Customize your agent" },
+            { id: 4, label: "Kenji Prompt", sublabel: "Ready to deploy" },
+          ]}
+        />
 
-          {/* Step content */}
-          <div className="flex-1 min-w-0">
-            {/* Mobile step pills */}
-            <div className="flex lg:hidden items-center gap-2 mb-6 overflow-x-auto pb-2">
-              {WIZARD_STEPS.map((step) => (
-                <div
-                  key={step.id}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium flex-shrink-0 transition-all",
-                    currentStep === step.id
-                      ? "bg-[#D4A017] text-[#0A0B14]"
-                      : completedSteps.includes(step.id)
-                      ? "bg-[#D4A017]/20 text-[#D4A017]"
-                      : "bg-white/5 text-white/30"
-                  )}
-                >
-                  {completedSteps.includes(step.id) ? <Check size={10} strokeWidth={3} /> : <span>{step.id}</span>}
-                  {step.label}
-                </div>
-              ))}
-            </div>
+        {/* Main Content */}
+        <div className="max-w-4xl mx-auto">
+          {/* ================================================================
+              STEP 1 — Business Info
+              ================================================================ */}
+          {currentStep === 1 && (
+            <div className="step-enter">
+              <StepHeader icon={<FileText size={20} />} step={1} title="Tell us about your business" subtitle="Drop a URL, paste your pitch, or enter manually" />
 
-            {/* ================================================================
-                STEP 1 — Business Info
-                ================================================================ */}
-            {currentStep === 1 && (
-              <div className="step-enter">
-                <StepHeader icon={<Building2 size={20} />} step={1} title="Tell us about your business" subtitle="Drop a URL, paste your pitch, or enter manually" />
-
-                <div className="flex gap-2 mb-6">
-                  {(["url", "text", "manual"] as const).map((method) => (
+              <div className="space-y-4 mb-8">
+                {/* Input Method Tabs */}
+                <div className="flex gap-2">
+                  {(["manual", "url", "text"] as const).map((method) => (
                     <button
                       key={method}
                       onClick={() => setInputMethod(method)}
                       className={cn(
-                        "px-4 py-2 rounded-lg text-sm font-medium transition-all border",
-                        inputMethod === method
-                          ? "bg-[#D4A017] text-[#0A0B14] border-[#D4A017]"
-                          : "bg-white/5 text-white/50 border-white/10 hover:border-white/20 hover:text-white/70"
+                        "px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                        inputMethod === method ? "bg-[#D4A017] text-[#0A0B14]" : "bg-white/5 text-white/50 hover:text-white/70"
                       )}
                     >
-                      {method === "url" ? "🔗 Scrape URL" : method === "text" ? "📋 Paste Text" : "✏️ Enter Manually"}
+                      {method === "manual" && "📝 Enter Manually"}
+                      {method === "url" && "🔗 Scrape URL"}
+                      {method === "text" && "📄 Paste Text"}
                     </button>
                   ))}
                 </div>
 
+                {/* URL Input */}
                 {inputMethod === "url" && (
-                  <div className="step-card-inactive rounded-xl p-6 mb-6">
-                    <label className="block text-sm text-white/60 mb-2">Your website URL</label>
-                    <div className="flex gap-3">
-                      <input
-                        type="url"
+                  <div className="space-y-3">
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="https://yourwebsite.com"
                         value={urlInput}
                         onChange={(e) => setUrlInput(e.target.value)}
-                        placeholder="https://your-business.com"
-                        className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-[#D4A017]/50 transition-colors"
+                        className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
                       />
-                      <button
-                        onClick={handleScrape}
+                      <Button
+                        onClick={handleScrapeUrl}
                         disabled={isScraping}
-                        className="px-5 py-3 bg-[#D4A017] text-[#0A0B14] rounded-lg text-sm font-semibold hover:bg-[#F59E0B] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 min-w-[90px] justify-center"
+                        className="bg-[#D4A017] text-[#0A0B14] hover:bg-[#D4A017]/90 flex-shrink-0"
                       >
-                        {isScraping ? (
-                          <><span className="inline-block w-3 h-3 border-2 border-[#0A0B14]/40 border-t-[#0A0B14] rounded-full animate-spin" />Scraping...</>
-                        ) : "Scrape"}
-                      </button>
+                        {isScraping ? <Loader2 className="animate-spin" size={16} /> : "Scrape"}
+                      </Button>
                     </div>
-                    <button onClick={() => setInputMethod("manual")} className="mt-3 text-xs text-[#D4A017]/60 hover:text-[#D4A017] transition-colors">
-                      Or enter manually →
-                    </button>
                   </div>
                 )}
 
+                {/* Text Input */}
                 {inputMethod === "text" && (
-                  <div className="step-card-inactive rounded-xl p-6 mb-6">
-                    <label className="block text-sm text-white/60 mb-2">Paste your business description, pitch, or offer</label>
-                    <textarea
-                      value={textInput}
-                      onChange={(e) => setTextInput(e.target.value)}
-                      placeholder="Paste anything — your about page, pitch deck, offer description..."
-                      rows={6}
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-[#D4A017]/50 transition-colors resize-none"
-                    />
-                    <button onClick={handleTextImport} className="mt-3 px-5 py-2.5 bg-[#D4A017] text-[#0A0B14] rounded-lg text-sm font-semibold hover:bg-[#F59E0B] transition-colors">
-                      Import & Continue
-                    </button>
-                  </div>
+                  <Textarea
+                    placeholder="Paste your pitch, website copy, or any business info..."
+                    value={textInput}
+                    onChange={(e) => {
+                      setTextInput(e.target.value);
+                      // Simple extraction logic
+                      const lines = e.target.value.split("\n");
+                      setBusiness((prev) => ({
+                        ...prev,
+                        productService: lines[0] || prev.productService,
+                      }));
+                    }}
+                    className="bg-white/5 border-white/10 text-white placeholder:text-white/30 min-h-24"
+                  />
                 )}
 
+                {/* Manual Entry */}
                 {inputMethod === "manual" && (
-                  <div className="step-card-active rounded-xl p-6 mb-6 space-y-5">
-                    <div className="grid sm:grid-cols-2 gap-5">
-                      <FormField label="Business Name *" placeholder="e.g. Kenji CRM" value={business.businessName} onChange={(v) => updateBusiness("businessName", v)} />
-                      <FormField label="Industry *" placeholder="e.g. CRM Software, Real Estate, Coaching" value={business.industry} onChange={(v) => updateBusiness("industry", v)} />
+                  <div className="space-y-4 bg-white/3 border border-white/10 rounded-xl p-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-white/70 text-xs font-semibold mb-2 block">BUSINESS NAME *</Label>
+                        <Input
+                          placeholder="e.g. Kenji CRM"
+                          value={business.businessName}
+                          onChange={(e) => setBusiness({ ...business, businessName: e.target.value })}
+                          className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-white/70 text-xs font-semibold mb-2 block">INDUSTRY *</Label>
+                        <Input
+                          placeholder="e.g. CRM Software, Real Estate, Coaching"
+                          value={business.industry}
+                          onChange={(e) => setBusiness({ ...business, industry: e.target.value })}
+                          className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+                        />
+                      </div>
                     </div>
-                    <FormField
-                      label="What You Sell *"
-                      placeholder="e.g. AI-powered CRM platform for agencies that automates follow-ups and closes more deals"
-                      value={business.productService}
-                      onChange={(v) => updateBusiness("productService", v)}
-                      multiline
-                    />
-                    <FormField
-                      label="Price / Investment"
-                      placeholder="e.g. $497/month, $5,000 one-time, $997 setup + $297/mo"
-                      value={business.price}
-                      onChange={(v) => updateBusiness("price", v)}
-                    />
 
-                    {/* Call Purpose */}
                     <div>
-                      <label className="block text-xs font-semibold text-white/50 uppercase tracking-wide mb-3">
-                        What is the goal of this outbound call? *
+                      <Label className="text-white/70 text-xs font-semibold mb-2 block">WHAT YOU SELL *</Label>
+                      <Textarea
+                        placeholder="Describe your product or service in 1-2 sentences"
+                        value={business.productService}
+                        onChange={(e) => setBusiness({ ...business, productService: e.target.value })}
+                        className="bg-white/5 border-white/10 text-white placeholder:text-white/30 min-h-20"
+                      />
+                    </div>
+
+                    <div>
+                      <Label className="text-white/70 text-xs font-semibold mb-2 block">TARGET CUSTOMER *</Label>
+                      <Input
+                        placeholder="e.g. Real estate agents, SaaS founders, coaches"
+                        value={business.targetCustomer}
+                        onChange={(e) => setBusiness({ ...business, targetCustomer: e.target.value })}
+                        className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+                      />
+                    </div>
+
+                    <div>
+                      <Label className="text-white/70 text-xs font-semibold mb-2 block">MAIN BENEFIT / TRANSFORMATION *</Label>
+                      <Input
+                        placeholder="e.g. Close more deals, save 10 hours/week, 3x ROI"
+                        value={business.mainBenefit}
+                        onChange={(e) => setBusiness({ ...business, mainBenefit: e.target.value })}
+                        className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-white/70 text-xs font-semibold mb-2 block">PRICING</Label>
+                        <Input
+                          placeholder="e.g. $5,000 one-time + $500/mo"
+                          value={business.price}
+                          onChange={(e) => setBusiness({ ...business, price: e.target.value })}
+                          className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-white/70 text-xs font-semibold mb-2 block">TRIAL LINK (optional)</Label>
+                        <Input
+                          placeholder="https://trial.yoursite.com"
+                          value={business.trialLink}
+                          onChange={(e) => setBusiness({ ...business, trialLink: e.target.value })}
+                          className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label className="text-white/70 text-xs font-semibold mb-2 block">COMMON OBJECTIONS</Label>
+                      <Textarea
+                        placeholder="e.g. It's too expensive, I need to think about it, We already have a solution"
+                        value={business.commonObjections}
+                        onChange={(e) => setBusiness({ ...business, commonObjections: e.target.value })}
+                        className="bg-white/5 border-white/10 text-white placeholder:text-white/30 min-h-16"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-white/70 text-xs font-semibold mb-2 block">CALL PURPOSE</Label>
+                        <Select value={business.callPurpose} onValueChange={(value: any) => setBusiness({ ...business, callPurpose: value })}>
+                          <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#1a1b2e] border-white/10">
+                            {CALL_PURPOSE_OPTIONS.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value} className="text-white">
+                                {opt.icon} {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-white/70 text-xs font-semibold mb-2 block">GUARANTEE POLICY</Label>
+                        <Input
+                          placeholder="e.g. 30-day money-back guarantee"
+                          value={business.guaranteePolicy}
+                          onChange={(e) => setBusiness({ ...business, guaranteePolicy: e.target.value })}
+                          className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <Button onClick={handleStep1Next} className="w-full bg-[#D4A017] text-[#0A0B14] hover:bg-[#D4A017]/90 font-semibold py-3">
+                Next: Edit & Refine
+              </Button>
+            </div>
+          )}
+
+          {/* ================================================================
+              STEP 2 — Edit & Refine
+              ================================================================ */}
+          {currentStep === 2 && (
+            <div className="step-enter">
+              <StepHeader icon={<FileText size={20} />} step={2} title="Edit & refine" subtitle="Dial in the details" />
+
+              <div className="space-y-4 bg-white/3 border border-white/10 rounded-xl p-6 mb-8">
+                <div>
+                  <Label className="text-white/70 text-xs font-semibold mb-2 block">BUSINESS NAME</Label>
+                  <Input
+                    value={business.businessName}
+                    onChange={(e) => setBusiness({ ...business, businessName: e.target.value })}
+                    className="bg-white/5 border-white/10 text-white"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-white/70 text-xs font-semibold mb-2 block">INDUSTRY</Label>
+                    <Input
+                      value={business.industry}
+                      onChange={(e) => setBusiness({ ...business, industry: e.target.value })}
+                      className="bg-white/5 border-white/10 text-white"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-white/70 text-xs font-semibold mb-2 block">PRICING</Label>
+                    <Input
+                      value={business.price}
+                      onChange={(e) => setBusiness({ ...business, price: e.target.value })}
+                      className="bg-white/5 border-white/10 text-white"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-white/70 text-xs font-semibold mb-2 block">WHAT YOU SELL</Label>
+                  <Textarea
+                    value={business.productService}
+                    onChange={(e) => setBusiness({ ...business, productService: e.target.value })}
+                    className="bg-white/5 border-white/10 text-white min-h-16"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-white/70 text-xs font-semibold mb-2 block">TARGET CUSTOMER</Label>
+                  <Input
+                    value={business.targetCustomer}
+                    onChange={(e) => setBusiness({ ...business, targetCustomer: e.target.value })}
+                    className="bg-white/5 border-white/10 text-white"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-white/70 text-xs font-semibold mb-2 block">MAIN BENEFIT / TRANSFORMATION</Label>
+                  <Input
+                    value={business.mainBenefit}
+                    onChange={(e) => setBusiness({ ...business, mainBenefit: e.target.value })}
+                    className="bg-white/5 border-white/10 text-white"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-white/70 text-xs font-semibold mb-2 block">COMMON OBJECTIONS (comma-separated)</Label>
+                  <Textarea
+                    value={business.commonObjections}
+                    onChange={(e) => setBusiness({ ...business, commonObjections: e.target.value })}
+                    className="bg-white/5 border-white/10 text-white min-h-16"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-white/70 text-xs font-semibold mb-2 block">TRIAL LINK</Label>
+                    <Input
+                      value={business.trialLink}
+                      onChange={(e) => setBusiness({ ...business, trialLink: e.target.value })}
+                      className="bg-white/5 border-white/10 text-white"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-white/70 text-xs font-semibold mb-2 block">GUARANTEE POLICY</Label>
+                    <Input
+                      value={business.guaranteePolicy}
+                      onChange={(e) => setBusiness({ ...business, guaranteePolicy: e.target.value })}
+                      className="bg-white/5 border-white/10 text-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <Button onClick={handleStep2Next} className="w-full bg-[#D4A017] text-[#0A0B14] hover:bg-[#D4A017]/90 font-semibold py-3">
+                Next: Closer Skills
+              </Button>
+            </div>
+          )}
+
+          {/* ================================================================
+              STEP 3 — Closer Personality
+              ================================================================ */}
+          {currentStep === 3 && (
+            <div className="step-enter">
+              <StepHeader icon={<FileText size={20} />} step={3} title="Closer skills" subtitle="Customize your agent" />
+
+              <div className="space-y-4 bg-white/3 border border-white/10 rounded-xl p-6 mb-8">
+                <div>
+                  <Label className="text-white/70 text-xs font-semibold mb-2 block">CLOSER NAME *</Label>
+                  <Input
+                    placeholder="e.g. Alex, Jordan, The Closer"
+                    value={personality.name}
+                    onChange={(e) => setPersonality({ ...personality, name: e.target.value })}
+                    className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-white/70 text-xs font-semibold mb-2 block">TONE</Label>
+                  <Select value={personality.tone} onValueChange={(value: any) => setPersonality({ ...personality, tone: value })}>
+                    <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1a1b2e] border-white/10">
+                      {TONE_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value} className="text-white">
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-white/40 mt-1">
+                    {TONE_OPTIONS.find((t) => t.value === personality.tone)?.description}
+                  </p>
+                </div>
+
+                <div>
+                  <Label className="text-white/70 text-xs font-semibold mb-2 block">SPECIALTIES (select all that apply)</Label>
+                  <div className="space-y-2">
+                    {SPECIALTY_OPTIONS_LOCAL.map((spec) => (
+                      <label key={spec} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={personality.specialties.includes(spec)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setPersonality({ ...personality, specialties: [...personality.specialties, spec] });
+                            } else {
+                              setPersonality({
+                                ...personality,
+                                specialties: personality.specialties.filter((s) => s !== spec),
+                              });
+                            }
+                          }}
+                          className="w-4 h-4 rounded bg-white/10 border-white/20 accent-[#D4A017]"
+                        />
+                        <span className="text-sm text-white/70">{spec}</span>
                       </label>
-                      <div className="grid sm:grid-cols-2 gap-3">
-                        {CALL_PURPOSE_OPTIONS.map((opt) => (
-                          <button
-                            key={opt.value}
-                            onClick={() => updateBusiness("callPurpose", opt.value)}
-                            className={cn(
-                              "text-left p-4 rounded-lg border transition-all",
-                              business.callPurpose === opt.value
-                                ? "border-[#D4A017] bg-[#D4A017]/10"
-                                : "border-white/10 bg-white/3 hover:border-white/20"
-                            )}
-                          >
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-lg">{opt.icon}</span>
-                              <p className={cn("text-sm font-semibold", business.callPurpose === opt.value ? "text-[#D4A017]" : "text-white/70")}>
-                                {opt.label}
-                              </p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <Button onClick={handleStep3Next} disabled={isGenerating} className="w-full bg-[#D4A017] text-[#0A0B14] hover:bg-[#D4A017]/90 font-semibold py-3">
+                {isGenerating ? <Loader2 className="animate-spin mr-2" size={16} /> : "Generate Your Kenji Prompt"}
+              </Button>
+            </div>
+          )}
+
+          {/* ================================================================
+              STEP 4 — Generated Kenji AI Prompt (ALL SECTIONS VISIBLE AT ONCE)
+              ================================================================ */}
+          {currentStep === 4 && (
+            <div className="step-enter">
+              <StepHeader icon={<FileText size={20} />} step={4} title="Your Kenji AI closer is ready" subtitle="All sections visible below — copy what you need" />
+
+              {isGenerating ? (
+                <div className="step-card-inactive rounded-xl p-12 flex flex-col items-center justify-center gap-4">
+                  <img
+                    src="https://d2xsxph8kpxj0f.cloudfront.net/310519663145844820/D8d6P6JxN75EWVX5ZmECZm/closer-fire-logo-FpAzV6cKZvopBi3MjgPhGs.png"
+                    alt=""
+                    className="w-16 h-16 object-contain animate-pulse"
+                  />
+                  <p className="text-[#D4A017] font-semibold">Forging your Kenji AI closer...</p>
+                  <p className="text-white/30 text-xs text-center max-w-xs mt-1">Fixing all evaluator issues automatically</p>
+                  <p className="text-white/40 text-sm text-center max-w-xs">
+                    Embedding Burn the Boats + TCPA compliance into your Voice AI prompt
+                  </p>
+                  <div className="flex gap-1 mt-2">
+                    {[0, 1, 2].map((i) => (
+                      <div key={i} className="w-2 h-2 rounded-full bg-[#D4A017] animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
+                    ))}
+                  </div>
+                </div>
+              ) : generatedPrompt ? (
+                <div className="space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto pr-4">
+                  {/* MAIN PROMPT FIRST */}
+                  <div className="step-enter">
+                    <div className="step-card-inactive rounded-xl p-5 mb-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#D4A017]/20 text-[#D4A017]">Main Prompt</span>
+                        <p className="text-sm font-semibold text-white/80">Agent Goals → Advanced Mode → Prompt</p>
+                      </div>
+                      <p className="text-xs text-white/40 mb-4">The full system prompt. Paste into Kenji AI's Advanced Mode prompt field. Contains: Role, Compliance Opening, Script Flow, Objection Handling, and Guardrails.</p>
+                      <PromptBox
+                        content={generatedPrompt.mainPrompt}
+                        isStreaming={false}
+                        onCopy={() => handleCopy(generatedPrompt.mainPrompt, "main")}
+                        copied={copied === "main"}
+                        tall
+                        onExpand={() => openModal(
+                          "Main Prompt",
+                          generatedPrompt.mainPrompt,
+                          "main-modal",
+                          "Main Prompt",
+                          "Agent Goals > Advanced Mode > Prompt",
+                          "In Kenji AI: Agent Goals tab - click Switch to Advanced Mode - paste into the Prompt field. Use the Evaluate button to test before going live."
+                        )}
+                      />
+                    </div>
+                    <div className="bg-[#D4A017]/8 border border-[#D4A017]/20 rounded-lg p-4">
+                      <p className="text-xs text-[#D4A017] font-semibold mb-2">💡 Kenji AI Setup Tip</p>
+                      <p className="text-xs text-white/50 leading-relaxed">
+                        In Kenji AI: <strong className="text-white/70">Agent Goals tab → click "Switch to Advanced Mode" → paste into the Prompt field</strong>. Use the "Evaluate" button to test before going live.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* GREETING SECTION */}
+                  <div className="step-enter">
+                    <div className="step-card-inactive rounded-xl p-5 mb-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">Kenji Field</span>
+                        <p className="text-sm font-semibold text-white/80">Agent Details → Initial Greeting Message</p>
+                      </div>
+                      <p className="text-xs text-white/40 mb-4">This is the FIRST thing the AI says when the call connects. Paste this into the "Initial Greeting Message" field — NOT the main prompt.</p>
+                      <PromptBox
+                        content={generatedPrompt.initialGreeting}
+                        onCopy={() => handleCopy(generatedPrompt.initialGreeting, "greeting")}
+                        copied={copied === "greeting"}
+                        onExpand={() => openModal(
+                          "Initial Greeting Message",
+                          generatedPrompt.initialGreeting,
+                          "greeting-modal",
+                          "Kenji Field",
+                          "Agent Details → Initial Greeting Message",
+                          "In Kenji AI: AI Agents → Voice AI → Create Agent → Agent Details tab → paste into Initial Greeting Message. This fires before your main prompt kicks in."
+                        )}
+                      />
+                    </div>
+                    <div className="bg-blue-500/8 border border-blue-500/20 rounded-lg p-4">
+                      <p className="text-xs text-blue-400 font-semibold mb-2">💡 Kenji AI Setup Tip</p>
+                      <p className="text-xs text-white/50 leading-relaxed">
+                        In Kenji AI: <strong className="text-white/70">AI Agents → Voice AI → Create Agent → Agent Details tab</strong> → paste into "Initial Greeting Message". This fires before your main prompt kicks in.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* ACTION TRIGGERS SECTION */}
+                  <div className="step-enter">
+                    <div className="step-card-inactive rounded-xl p-5 mb-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#D4A017]/20 text-[#D4A017]">Action Triggers</span>
+                        <p className="text-sm font-semibold text-white/80">Agent Goals → Actions Tab</p>
+                      </div>
+                      <p className="text-xs text-white/40 mb-4">Copy each triggerPrompt exactly as written into Kenji AI's Actions tab. These fix the evaluator's "Trigger Clarity" and "Information Gathering" flags.</p>
+                      <div className="space-y-3">
+                        {generatedPrompt.actionTriggers.map((trigger, i: number) => (
+                          <div key={i} className="bg-white/3 rounded-lg p-4 border border-white/5">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-xs font-bold text-[#D4A017]">{trigger.name}</p>
+                              <button
+                                onClick={() => handleCopy(`Action: ${trigger.action}\n\nTrigger Prompt:\n${trigger.triggerPrompt}\n\nNotes: ${trigger.notes}`, `trigger-${i}`)}
+                                className="flex items-center gap-1 text-xs text-white/30 hover:text-white/60 transition-colors border border-white/10 rounded px-2 py-1 hover:border-white/20"
+                              >
+                                {copied === `trigger-${i}` ? <Check size={10} /> : <Copy size={10} />}
+                                Copy
+                              </button>
                             </div>
-                            <p className="text-xs text-white/35">{opt.description}</p>
-                          </button>
+                            <p className="text-xs text-white/30 uppercase tracking-wide mb-1">Action</p>
+                            <p className="text-xs text-white/60 mb-3 font-mono">{trigger.action}</p>
+                            <p className="text-xs text-white/30 uppercase tracking-wide mb-1">Trigger Prompt (paste exactly)</p>
+                            <p className="text-xs text-white/60 leading-relaxed mb-3 italic">{trigger.triggerPrompt}</p>
+                            <p className="text-xs text-white/30 uppercase tracking-wide mb-1">Setup Note</p>
+                            <p className="text-xs text-white/45 leading-relaxed">{trigger.notes}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="bg-[#D4A017]/8 border border-[#D4A017]/20 rounded-lg p-4">
+                      <p className="text-xs text-[#D4A017] font-semibold mb-2">⚡ Kenji AI Setup Tip</p>
+                      <p className="text-xs text-white/50 leading-relaxed">
+                        In Kenji AI: <strong className="text-white/70">Agent Goals → Actions tab → Add Action</strong> → paste the Trigger Prompt into the "When" field and configure the corresponding action. Add all 8 triggers for full coverage.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* OBJECTIONS SECTION */}
+                  <div className="step-enter">
+                    <div className="step-card-inactive rounded-xl p-5 mb-3">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <p className="text-sm font-semibold text-white/80">Objection Handler Reference Card</p>
+                          <p className="text-xs text-white/40 mt-0.5">Already embedded in your main prompt. Use this as a training reference.</p>
+                        </div>
+                        <button
+                          onClick={() => handleCopy(generatedPrompt.objectionHandlers.join("\n\n"), "objections")}
+                          className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors border border-white/10 rounded-lg px-3 py-1.5 hover:border-white/20 flex-shrink-0"
+                        >
+                          {copied === "objections" ? <Check size={12} /> : <Copy size={12} />}
+                          Copy All
+                        </button>
+                      </div>
+                      <div className="space-y-3">
+                        {generatedPrompt.objectionHandlers.map((handler: string, i: number) => (
+                          <div key={i} className="bg-white/3 rounded-lg p-3 border border-white/5">
+                            <p className="text-xs text-white/60 font-mono leading-relaxed">{handler}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <BatmanQuote compact />
+                  </div>
+
+                  {/* CLOSING SCRIPT SECTION */}
+                  <div className="step-enter">
+                    <div className="step-card-inactive rounded-xl p-5 mb-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#D4A017]/20 text-[#D4A017]">The Close</span>
+                        <p className="text-sm font-semibold text-white/80">The Burn the Boats Closing Sequence</p>
+                      </div>
+                      <p className="text-xs text-white/40 mb-4">Already embedded in the main prompt. This is the standalone reference for training your human team too.</p>
+                      <PromptBox
+                        content={generatedPrompt.closingScript}
+                        onCopy={() => handleCopy(generatedPrompt.closingScript, "closing")}
+                        copied={copied === "closing"}
+                        onExpand={() => openModal(
+                          "The Burn the Boats Closing Sequence",
+                          generatedPrompt.closingScript,
+                          "closing-modal",
+                          "The Close",
+                          "Batman Well Story — embed in training, not just the AI",
+                          "After asking the closing question — silence. The next person who speaks, loses."
+                        )}
+                      />
+                    </div>
+                    <div className="relative overflow-hidden rounded-xl border border-[#D4A017]/25 bg-gradient-to-br from-[#D4A017]/8 to-transparent p-5">
+                      <div
+                        className="absolute inset-0 opacity-10 bg-cover bg-center"
+                        style={{ backgroundImage: `url(https://d2xsxph8kpxj0f.cloudfront.net/310519663145844820/D8d6P6JxN75EWVX5ZmECZm/closer-batman-well-96TPTZkZN7hDL6JEJUqWdS.webp)` }}
+                      />
+                      <div className="relative z-10">
+                        <p className="text-xs font-bold text-[#D4A017] uppercase tracking-widest mb-2">🦇 The Golden Rule</p>
+                        <p className="text-sm text-white/70 italic leading-relaxed">
+                          "After asking the closing question — silence. The next person who speaks, loses."
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* COMPLIANCE SECTION */}
+                  <div className="step-enter">
+                    <div className="step-card-inactive rounded-xl p-5 mb-3">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <p className="text-sm font-semibold text-white/80">Compliance Checklist</p>
+                          <p className="text-xs text-white/40 mt-0.5">Verify before going live</p>
+                        </div>
+                        <button
+                          onClick={() => handleCopy(generatedPrompt.complianceChecklist.join("\n"), "compliance")}
+                          className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors border border-white/10 rounded-lg px-3 py-1.5 hover:border-white/20 flex-shrink-0"
+                        >
+                          {copied === "compliance" ? <Check size={12} /> : <Copy size={12} />}
+                          Copy All
+                        </button>
+                      </div>
+                      <div className="space-y-2">
+                        {generatedPrompt.complianceChecklist.map((item: string, i: number) => (
+                          <div key={i} className="flex items-start gap-2 text-xs text-white/60">
+                            <span className="text-[#D4A017] font-bold flex-shrink-0">{item.split(" ")[0]}</span>
+                            <span>{item.substring(item.indexOf(" ") + 1)}</span>
+                          </div>
                         ))}
                       </div>
                     </div>
                   </div>
-                )}
-
-                <NextButton onClick={handleStep1Next} label="Next: Refine Details" />
-              </div>
-            )}
-
-            {/* ================================================================
-                STEP 2 — Refine
-                ================================================================ */}
-            {currentStep === 2 && (
-              <div className="step-enter">
-                <StepHeader icon={<Sliders size={20} />} step={2} title="Dial in the details" subtitle="The sharper your inputs, the sharper your closer" />
-
-                <div className="step-card-active rounded-xl p-6 mb-6 space-y-5">
-                  <FormField
-                    label="Ideal Customer *"
-                    placeholder="e.g. Agency owners doing $10k-$50k/month who are losing leads due to slow follow-up"
-                    value={business.targetCustomer}
-                    onChange={(v) => updateBusiness("targetCustomer", v)}
-                    multiline
-                  />
-                  <FormField
-                    label="Core Transformation / Main Benefit *"
-                    placeholder="e.g. Go from manually chasing leads to having an AI that closes deals while you sleep"
-                    value={business.mainBenefit}
-                    onChange={(v) => updateBusiness("mainBenefit", v)}
-                    multiline
-                  />
-                  <FormField
-                    label="Common Objections (comma-separated)"
-                    placeholder="e.g. too expensive, need to think about it, already have a CRM, need to talk to my partner"
-                    value={business.commonObjections}
-                    onChange={(v) => updateBusiness("commonObjections", v)}
-                    multiline
-                  />
                 </div>
-
-                {/* Compliance notice */}
-                <div className="border border-[#D4A017]/20 rounded-xl p-4 bg-[#D4A017]/5 mb-6">
-                  <div className="flex gap-3">
-                    <ShieldCheck size={18} className="text-[#D4A017] flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-xs font-bold text-[#D4A017] mb-1">TCPA Compliance Built In</p>
-                      <p className="text-xs text-white/50 leading-relaxed">
-                        Your generated prompt will include: business identification at call start, verbal opt-out mechanism, DNC handling, and Kenji AI's 10AM–6PM call window compliance language. All required by FCC/TCPA for AI outbound calls.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <BatmanQuote />
-
-                <div className="flex gap-3 mt-6">
-                  <BackButton onClick={() => setCurrentStep(1)} />
-                  <NextButton onClick={handleStep2Next} label="Next: Closer Skills" />
-                </div>
-              </div>
-            )}
-
-            {/* ================================================================
-                STEP 3 — Closer Skills
-                ================================================================ */}
-            {currentStep === 3 && (
-              <div className="step-enter">
-                <StepHeader icon={<Zap size={20} />} step={3} title="Give your closer its edge" subtitle="Customize the voice agent's personality and skills" />
-
-                <div className="space-y-6 mb-6">
-                  <div className="step-card-active rounded-xl p-6">
-                    <FormField
-                      label="Agent Name (what the AI calls itself)"
-                      placeholder="e.g. Alex, Jordan, The Closer"
-                      value={personality.name}
-                      onChange={(v) => setPersonality((p) => ({ ...p, name: v }))}
-                    />
-                  </div>
-
-                  <div className="step-card-inactive rounded-xl p-6">
-                    <p className="text-sm font-semibold text-white/80 mb-4">Closing Tone</p>
-                    <div className="grid sm:grid-cols-2 gap-3">
-                      {TONE_OPTIONS.map((tone) => (
-                        <button
-                          key={tone.value}
-                          onClick={() => setPersonality((p) => ({ ...p, tone: tone.value as CloserPersonality["tone"] }))}
-                          className={cn(
-                            "text-left p-4 rounded-lg border transition-all",
-                            personality.tone === tone.value
-                              ? "border-[#D4A017] bg-[#D4A017]/10"
-                              : "border-white/10 bg-white/3 hover:border-white/20"
-                          )}
-                        >
-                          <p className={cn("text-sm font-semibold", personality.tone === tone.value ? "text-[#D4A017]" : "text-white/70")}>
-                            {tone.label}
-                          </p>
-                          <p className="text-xs text-white/40 mt-0.5">{tone.description}</p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="step-card-inactive rounded-xl p-6">
-                    <p className="text-sm font-semibold text-white/80 mb-1">Closer Specialties</p>
-                    <p className="text-xs text-white/40 mb-4">Select all that apply</p>
-                    <div className="flex flex-wrap gap-2">
-                      {SPECIALTY_OPTIONS.map((s) => (
-                        <button
-                          key={s}
-                          onClick={() => toggleSpecialty(s)}
-                          className={cn(
-                            "px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
-                            personality.specialties.includes(s)
-                              ? "bg-[#D4A017] text-[#0A0B14] border-[#D4A017]"
-                              : "bg-white/5 text-white/50 border-white/10 hover:border-white/25 hover:text-white/70"
-                          )}
-                        >
-                          {s}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <BatmanQuote compact />
-                </div>
-
-                <div className="flex gap-3">
-                  <BackButton onClick={() => setCurrentStep(2)} />
-                  <NextButton onClick={handleStep3Next} label="Generate Kenji AI Prompt" icon={<Sparkles size={16} />} highlight />
-                </div>
-              </div>
-            )}
-
-            {/* ================================================================
-                STEP 4 — Generated Kenji AI Prompt
-                ================================================================ */}
-            {currentStep === 4 && (
-              <div className="step-enter">
-                <StepHeader icon={<FileText size={20} />} step={4} title="Your Kenji AI closer is ready" subtitle="Copy each section into the corresponding Kenji AI Caller field" />
-
-                {isGenerating ? (
-                  <div className="step-card-inactive rounded-xl p-12 flex flex-col items-center justify-center gap-4">
-                    <img
-                      src="https://d2xsxph8kpxj0f.cloudfront.net/310519663145844820/D8d6P6JxN75EWVX5ZmECZm/closer-fire-logo-FpAzV6cKZvopBi3MjgPhGs.png"
-                      alt=""
-                      className="w-16 h-16 object-contain animate-pulse"
-                    />
-                    <p className="text-[#D4A017] font-semibold">Forging your Kenji AI closer...</p>
-                    <p className="text-white/30 text-xs text-center max-w-xs mt-1">Fixing all evaluator issues automatically</p>
-                    <p className="text-white/40 text-sm text-center max-w-xs">
-                      Embedding Burn the Boats + TCPA compliance into your Voice AI prompt
-                    </p>
-                    <div className="flex gap-1 mt-2">
-                      {[0, 1, 2].map((i) => (
-                        <div key={i} className="w-2 h-2 rounded-full bg-[#D4A017] animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
-                      ))}
-                    </div>
-                  </div>
-                ) : generatedPrompt ? (
-                  <div className="space-y-4">
-                    {/* Tab navigation */}
-                    <div className="flex gap-1 bg-white/5 p-1 rounded-xl overflow-x-auto">
-                      {[
-                        { key: "greeting", label: "Initial Greeting", icon: "👋" },
-                        { key: "main", label: "Main Prompt", icon: "🧠" },
-                        { key: "triggers", label: "Action Triggers", icon: "⚡" },
-                        { key: "objections", label: "Objection Handlers", icon: "🔥" },
-                        { key: "closing", label: "Closing Script", icon: "🎯" },
-                        { key: "compliance", label: "Compliance", icon: "✅" },
-                      ].map((tab) => (
-                        <button
-                          key={tab.key}
-                          onClick={() => setActiveTab(tab.key as typeof activeTab)}
-                          className={cn(
-                            "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap flex-shrink-0",
-                            activeTab === tab.key
-                              ? "bg-[#D4A017] text-[#0A0B14]"
-                              : "text-white/50 hover:text-white/70"
-                          )}
-                        >
-                          <span>{tab.icon}</span>
-                          {tab.label}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* GREETING TAB */}
-                    {activeTab === "greeting" && (
-                      <div className="step-enter">
-                        <div className="step-card-inactive rounded-xl p-5 mb-3">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">Kenji Field</span>
-                            <p className="text-sm font-semibold text-white/80">Agent Details → Initial Greeting Message</p>
-                          </div>
-                          <p className="text-xs text-white/40 mb-4">This is the FIRST thing the AI says when the call connects. Paste this into the "Initial Greeting Message" field — NOT the main prompt.</p>
-                          <PromptBox
-                            content={generatedPrompt.initialGreeting}
-                            onCopy={() => handleCopy(generatedPrompt.initialGreeting, "greeting")}
-                            copied={copied === "greeting"}
-                            onExpand={() => openModal(
-                              "Initial Greeting Message",
-                              generatedPrompt.initialGreeting,
-                              "greeting-modal",
-                              "Kenji Field",
-                              "Agent Details → Initial Greeting Message",
-                              "In Kenji AI: <strong>AI Agents → Voice AI → Create Agent → Agent Details tab</strong> → paste into \"Initial Greeting Message\". This fires before your main prompt kicks in."
-                            )}
-                          />
-                        </div>
-                        <div className="bg-[#D4A017]/8 border border-[#D4A017]/20 rounded-lg p-4">
-                          <p className="text-xs text-[#D4A017] font-semibold mb-2">💡 Kenji AI Setup Tip</p>
-                          <p className="text-xs text-white/50 leading-relaxed">
-                            In Kenji AI: <strong className="text-white/70">AI Agents → Voice AI → Create Agent → Agent Details tab</strong> → paste into "Initial Greeting Message". This fires before your main prompt kicks in.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* MAIN PROMPT TAB */}
-                    {activeTab === "main" && (
-                      <div className="step-enter">
-                        <div className="step-card-inactive rounded-xl p-5 mb-3">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#D4A017]/20 text-[#D4A017]">Main Prompt</span>
-                            <p className="text-sm font-semibold text-white/80">Agent Goals → Advanced Mode → Prompt</p>
-                          </div>
-                          <p className="text-xs text-white/40 mb-4">The full system prompt. Paste into Kenji AI's Advanced Mode prompt field. Contains: Role, Compliance Opening, Script Flow, Objection Handling, and Guardrails.</p>
-                          <PromptBox
-                            content={generatedPrompt.mainPrompt}
-                            isStreaming={false}
-                            onCopy={() => handleCopy(generatedPrompt.mainPrompt, "main")}
-                            copied={copied === "main"}
-                            tall
-                            onExpand={() => openModal(
-                              "Main Prompt",
-                              generatedPrompt.mainPrompt,
-                              "main-modal",
-                              "Main Prompt",
-                              "Agent Goals > Advanced Mode > Prompt",
-                              "In Kenji AI: Agent Goals tab - click Switch to Advanced Mode - paste into the Prompt field. Use the Evaluate button to test before going live."
-                            )}
-                          />
-                        </div>
-                        <div className="bg-[#D4A017]/8 border border-[#D4A017]/20 rounded-lg p-4">
-                          <p className="text-xs text-[#D4A017] font-semibold mb-2">💡 Kenji AI Setup Tip</p>
-                          <p className="text-xs text-white/50 leading-relaxed">
-                            In Kenji AI: <strong className="text-white/70">Agent Goals tab → click "Switch to Advanced Mode" → paste into the Prompt field</strong>. Use the "Evaluate" button to test before going live.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* ACTION TRIGGERS TAB */}
-                    {activeTab === "triggers" && (
-                      <div className="step-enter">
-                        <div className="step-card-inactive rounded-xl p-5 mb-3">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#D4A017]/20 text-[#D4A017]">Action Triggers</span>
-                            <p className="text-sm font-semibold text-white/80">Agent Goals → Actions Tab</p>
-                          </div>
-                          <p className="text-xs text-white/40 mb-4">Copy each triggerPrompt exactly as written into Kenji AI's Actions tab. These fix the evaluator's "Trigger Clarity" and "Information Gathering" flags.</p>
-                          <div className="space-y-3">
-                            {generatedPrompt.actionTriggers.map((trigger, i: number) => (
-                              <div key={i} className="bg-white/3 rounded-lg p-4 border border-white/5">
-                                <div className="flex items-center justify-between mb-2">
-                                  <p className="text-xs font-bold text-[#D4A017]">{trigger.name}</p>
-                                  <button
-                                    onClick={() => handleCopy(`Action: ${trigger.action}\n\nTrigger Prompt:\n${trigger.triggerPrompt}\n\nNotes: ${trigger.notes}`, `trigger-${i}`)}
-                                    className="flex items-center gap-1 text-xs text-white/30 hover:text-white/60 transition-colors border border-white/10 rounded px-2 py-1 hover:border-white/20"
-                                  >
-                                    {copied === `trigger-${i}` ? <Check size={10} /> : <Copy size={10} />}
-                                    Copy
-                                  </button>
-                                </div>
-                                <p className="text-xs text-white/30 uppercase tracking-wide mb-1">Action</p>
-                                <p className="text-xs text-white/60 mb-3 font-mono">{trigger.action}</p>
-                                <p className="text-xs text-white/30 uppercase tracking-wide mb-1">Trigger Prompt (paste exactly)</p>
-                                <p className="text-xs text-white/60 leading-relaxed mb-3 italic">{trigger.triggerPrompt}</p>
-                                <p className="text-xs text-white/30 uppercase tracking-wide mb-1">Setup Note</p>
-                                <p className="text-xs text-white/45 leading-relaxed">{trigger.notes}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="bg-[#D4A017]/8 border border-[#D4A017]/20 rounded-lg p-4">
-                          <p className="text-xs text-[#D4A017] font-semibold mb-2">⚡ Kenji AI Setup Tip</p>
-                          <p className="text-xs text-white/50 leading-relaxed">
-                            In Kenji AI: <strong className="text-white/70">Agent Goals → Actions tab → Add Action</strong> → paste the Trigger Prompt into the "When" field and configure the corresponding action. Add all 8 triggers for full coverage.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* OBJECTIONS TAB */}
-                    {activeTab === "objections" && (
-                      <div className="step-enter">
-                        <div className="step-card-inactive rounded-xl p-5 mb-3">
-                          <div className="flex items-center justify-between mb-4">
-                            <div>
-                              <p className="text-sm font-semibold text-white/80">Objection Handler Reference Card</p>
-                              <p className="text-xs text-white/40 mt-0.5">Already embedded in your main prompt. Use this as a training reference.</p>
-                            </div>
-                            <button
-                              onClick={() => handleCopy(generatedPrompt.objectionHandlers.join("\n\n"), "objections")}
-                              className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors border border-white/10 rounded-lg px-3 py-1.5 hover:border-white/20 flex-shrink-0"
-                            >
-                              {copied === "objections" ? <Check size={12} /> : <Copy size={12} />}
-                              Copy All
-                            </button>
-                          </div>
-                          <div className="space-y-3">
-                            {generatedPrompt.objectionHandlers.map((handler: string, i: number) => (
-                              <div key={i} className="bg-white/3 rounded-lg p-3 border border-white/5">
-                                <p className="text-xs text-white/60 font-mono leading-relaxed">{handler}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                        <BatmanQuote compact />
-                      </div>
-                    )}
-
-                    {/* CLOSING SCRIPT TAB */}
-                    {activeTab === "closing" && (
-                      <div className="step-enter">
-                        <div className="step-card-inactive rounded-xl p-5 mb-3">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#D4A017]/20 text-[#D4A017]">The Close</span>
-                            <p className="text-sm font-semibold text-white/80">The Burn the Boats Closing Sequence</p>
-                          </div>
-                          <p className="text-xs text-white/40 mb-4">Already embedded in the main prompt. This is the standalone reference for training your human team too.</p>
-                          <PromptBox
-                            content={generatedPrompt.closingScript}
-                            onCopy={() => handleCopy(generatedPrompt.closingScript, "closing")}
-                            copied={copied === "closing"}
-                            onExpand={() => openModal(
-                              "The Burn the Boats Closing Sequence",
-                              generatedPrompt.closingScript,
-                              "closing-modal",
-                              "The Close",
-                              "Batman Well Story — embed in training, not just the AI",
-                              "After asking the closing question — silence. The next person who speaks, loses."
-                            )}
-                          />
-                        </div>
-                        <div className="relative overflow-hidden rounded-xl border border-[#D4A017]/25 bg-gradient-to-br from-[#D4A017]/8 to-transparent p-5">
-                          <div
-                            className="absolute inset-0 opacity-10 bg-cover bg-center"
-                            style={{ backgroundImage: `url(https://d2xsxph8kpxj0f.cloudfront.net/310519663145844820/D8d6P6JxN75EWVX5ZmECZm/closer-batman-well-96TPTZkZN7hDL6JEJUqWdS.webp)` }}
-                          />
-                          <div className="relative z-10">
-                            <p className="text-xs font-bold text-[#D4A017] uppercase tracking-widest mb-2">🦇 The Golden Rule</p>
-                            <p className="text-sm text-white/70 italic leading-relaxed">
-                              "After asking the closing question — silence. The next person who speaks, loses. Train your AI to wait. Train yourself to wait."
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* COMPLIANCE TAB */}
-                    {activeTab === "compliance" && (
-                      <div className="step-enter">
-                        <div className="step-card-inactive rounded-xl p-5 mb-4">
-                          <p className="text-sm font-semibold text-white/80 mb-4 flex items-center gap-2">
-                            <ShieldCheck size={16} className="text-[#D4A017]" />
-                            TCPA / FCC Compliance Checklist
-                          </p>
-                          <div className="space-y-2">
-                            {generatedPrompt.complianceChecklist.map((item: string, i: number) => (
-                              <div key={i} className="flex gap-3 p-3 bg-white/3 rounded-lg border border-white/5">
-                                <p className="text-xs text-white/65 leading-relaxed">{item}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Setup notes */}
-                        <div className="step-card-inactive rounded-xl p-5">
-                          <p className="text-sm font-semibold text-white/80 mb-4 flex items-center gap-2">
-                            <Zap size={16} className="text-[#D4A017]" />
-                            Kenji AI Setup Notes
-                          </p>
-                          <div className="space-y-2">
-                            {generatedPrompt.setupNotes.map((note: string, i: number) => (
-                              <div key={i} className="flex gap-3 p-3 bg-white/3 rounded-lg border border-white/5">
-                                <span className="text-[#D4A017] text-xs font-bold flex-shrink-0 mt-0.5">{i + 1}.</span>
-                                <p className="text-xs text-white/55 leading-relaxed">{note}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Copy all button */}
-                    <button
-                      onClick={() =>
-                        handleCopy(
-                          [
-                            "=== INITIAL GREETING (Agent Details → Initial Greeting Message) ===\n" + generatedPrompt.initialGreeting,
-                            "\n\n=== MAIN PROMPT (Agent Goals → Advanced Mode → Prompt) ===\n" + generatedPrompt.mainPrompt,
-                            "\n\n=== OBJECTION HANDLERS (Reference) ===\n" + generatedPrompt.objectionHandlers.join("\n\n"),
-                            "\n\n=== CLOSING SCRIPT (Reference) ===\n" + generatedPrompt.closingScript,
-                            "\n\n=== COMPLIANCE CHECKLIST ===\n" + generatedPrompt.complianceChecklist.join("\n"),
-                            "\n\n=== ACTION TRIGGERS ===\n" + generatedPrompt.actionTriggers.map((t: {name: string; triggerPrompt: string; action: string; notes: string}) => `${t.name}\nAction: ${t.action}\nTrigger: ${t.triggerPrompt}\nNotes: ${t.notes}`).join("\n\n"),
-                            "\n\n=== KENJI AI SETUP NOTES ===\n" + generatedPrompt.setupNotes.join("\n"),
-                          ].join("\n"),
-                          "all"
-                        )
-                      }
-                      className="w-full py-4 bg-gradient-to-r from-[#D4A017] to-[#F59E0B] text-[#0A0B14] rounded-xl font-bold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 gold-glow"
-                    >
-                      {copied === "all" ? (
-                        <><Check size={16} strokeWidth={3} /> Copied Everything!</>
-                      ) : (
-                        <><Copy size={16} /> Copy Complete Kenji AI Closer Package</>
-                      )}
-                    </button>
-
-                    <button onClick={handleReset} className="w-full py-3 text-white/30 hover:text-white/60 transition-colors text-sm flex items-center justify-center gap-2">
-                      <RotateCcw size={14} />
-                      Build a new closer
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            )}
-          </div>
+              ) : null}
+            </div>
+          )}
         </div>
-      </main>
-
-      {/* Prompt Modal */}
-      {modal && (
-        <PromptModal
-          isOpen={modal.open}
-          onClose={closeModal}
-          title={modal.title}
-          badge={modal.badge}
-          subtitle={modal.subtitle}
-          content={modal.content}
-          onCopy={() => handleCopy(modal.content, modal.copyKey)}
-          copied={copied === modal.copyKey}
-          tip={modal.tip}
-        />
-      )}
-
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-white/8 mt-16 py-6">
-        <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <img
-              src="https://d2xsxph8kpxj0f.cloudfront.net/310519663145844820/D8d6P6JxN75EWVX5ZmECZm/closer-fire-logo-FpAzV6cKZvopBi3MjgPhGs.png"
-              alt=""
-              className="w-6 h-6 object-contain opacity-60"
-            />
-            <span className="text-xs text-white/30">The Closer — Powered by Media Traffic LLC</span>
-          </div>
-          <p className="text-xs text-white/20">🦇 Burn the Boats. Drop the rope. Close the deal.</p>
-        </div>
-      </footer>
-    </div>
-  );
-}
-
-// ============================================================================
-// Sub-components
-// ============================================================================
-
-function StepHeader({ icon, step, title, subtitle }: { icon: React.ReactNode; step: number; title: string; subtitle: string }) {
-  return (
-    <div className="mb-8">
-      <div className="flex items-center gap-3 mb-2">
-        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#D4A017]/15 text-[#D4A017]">{icon}</div>
-        <span className="text-xs font-bold text-[#D4A017] uppercase tracking-widest">Step {step} of 4</span>
       </div>
-      <h3 className="text-2xl font-bold text-white mb-1" style={{ fontFamily: "'Playfair Display', serif" }}>{title}</h3>
-      <p className="text-sm text-white/45">{subtitle}</p>
+
+      {/* Modal */}
+      {modal && <PromptModal {...modal} isOpen={modal.open} onClose={closeModal} onCopy={() => handleCopy(modal.content, modal.copyKey)} copied={copied === modal.copyKey} />}
     </div>
   );
 }
 
-function FormField({ label, placeholder, value, onChange, multiline = false }: { label: string; placeholder: string; value: string; onChange: (v: string) => void; multiline?: boolean }) {
-  const baseClass = "w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-[#D4A017]/50 transition-colors";
-  return (
-    <div>
-      <label className="block text-xs font-semibold text-white/50 uppercase tracking-wide mb-2">{label}</label>
-      {multiline ? (
-        <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={3} className={`${baseClass} resize-none`} />
-      ) : (
-        <input type="text" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className={baseClass} />
-      )}
-    </div>
-  );
-}
-
-function PromptBox({ content, isStreaming = false, onCopy, copied, tall = false, onExpand }: { content: string; isStreaming?: boolean; onCopy: () => void; copied: boolean; tall?: boolean; onExpand?: () => void }) {
-  return (
-    <div className="relative group">
-      <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
-        {onExpand && (
-          <button
-            onClick={onExpand}
-            className="flex items-center gap-1 text-xs text-white/30 hover:text-white/70 transition-colors border border-white/10 rounded-lg px-2.5 py-1.5 hover:border-white/20 bg-black/40"
-            title="Expand"
-          >
-            <Maximize2 size={11} />
-            <span>Expand</span>
-          </button>
-        )}
-        <button
-          onClick={onCopy}
-          className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors border border-white/10 rounded-lg px-3 py-1.5 hover:border-white/20 bg-black/40"
-        >
-          {copied ? <Check size={12} /> : <Copy size={12} />}
-          {copied ? "Copied!" : "Copy"}
-        </button>
-      </div>
-      <div
-        className={cn("bg-black/30 rounded-lg p-4 overflow-y-auto cursor-pointer hover:bg-black/40 transition-colors", tall ? "max-h-96" : "max-h-64", isStreaming && "typewriter-cursor")}
-        onClick={onExpand}
-        title={onExpand ? "Click to expand" : undefined}
-      >
-        <pre className="text-xs text-white/65 whitespace-pre-wrap font-mono leading-relaxed pr-32">{content}</pre>
-      </div>
-      {onExpand && (
-        <p className="text-xs text-white/20 mt-1 text-center">Click to expand full screen</p>
-      )}
-    </div>
-  );
-}
-
-function NextButton({ onClick, label, icon, highlight = false }: { onClick: () => void; label: string; icon?: React.ReactNode; highlight?: boolean }) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm transition-all",
-        highlight
-          ? "bg-gradient-to-r from-[#D4A017] to-[#F59E0B] text-[#0A0B14] hover:opacity-90 gold-glow"
-          : "bg-[#D4A017] text-[#0A0B14] hover:bg-[#F59E0B]"
-      )}
-    >
-      {icon}
-      {label}
-      <ArrowRight size={16} />
-    </button>
-  );
-}
-
-function BackButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm text-white/40 hover:text-white/70 border border-white/10 hover:border-white/20 transition-all"
-    >
-      <ChevronRight size={16} className="rotate-180" />
-      Back
-    </button>
-  );
-}
+const SPECIALTY_OPTIONS_LOCAL = [
+  "Handling price objections",
+  "Overcoming 'I need to think about it'",
+  "Closing high-ticket offers ($5k+)",
+  "B2B enterprise sales",
+  "Coaching & consulting sales",
+  "SaaS sales cycles",
+  "Real estate & mortgage",
+  "Insurance & financial services",
+];
