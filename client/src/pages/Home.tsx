@@ -200,9 +200,10 @@ export default function Home() {
     <div className="min-h-screen bg-[#0A0B14] text-white">
       <EmberField />
 
-      <div className="relative z-10 container mx-auto py-12 px-4">
+      <div className="relative z-10 min-h-screen flex flex-col">
+        <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="mb-12 text-center">
+        <div className="mb-8 text-center">
           <div className="inline-block mb-4">
             <div className="text-4xl">🔥</div>
           </div>
@@ -213,19 +214,22 @@ export default function Home() {
         </div>
 
         {/* Step Indicator */}
-        <StepIndicator
-          currentStep={currentStep}
-          completedSteps={completedSteps}
-          steps={[
-            { id: 1, label: "Business Info", sublabel: "Tell us about your offer" },
-            { id: 2, label: "Edit & Refine", sublabel: "Dial in the details" },
-            { id: 3, label: "Closer Skills", sublabel: "Customize your agent" },
-            { id: 4, label: "Kenji Prompt", sublabel: "Ready to deploy" },
-          ]}
-        />
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-12">
+          <div className="lg:col-span-1">
+            <StepIndicator
+              currentStep={currentStep}
+              completedSteps={completedSteps}
+              steps={[
+                { id: 1, label: "Business Info", sublabel: "Tell us about your offer" },
+                { id: 2, label: "Edit & Refine", sublabel: "Dial in the details" },
+                { id: 3, label: "Closer Skills", sublabel: "Customize your agent" },
+                { id: 4, label: "Kenji Prompt", sublabel: "Ready to deploy" },
+              ]}
+            />
+          </div>
 
         {/* Main Content */}
-        <div className="max-w-4xl mx-auto">
+        <div className="lg:col-span-3">
           {/* ================================================================
               STEP 1 — Business Info
               ================================================================ */}
@@ -293,7 +297,7 @@ export default function Home() {
 
                 {/* Manual Entry */}
                 {inputMethod === "manual" && (
-                  <div className="space-y-4 bg-white/3 border border-white/10 rounded-xl p-6">
+                  <div className="space-y-4 bg-white/3 border border-white/10 rounded-xl p-6 mb-8">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label className="text-white/70 text-xs font-semibold mb-2 block">BUSINESS NAME *</Label>
@@ -406,9 +410,11 @@ export default function Home() {
                 )}
               </div>
 
-              <Button onClick={handleStep1Next} className="w-full bg-[#D4A017] text-[#0A0B14] hover:bg-[#D4A017]/90 font-semibold py-3">
-                Next: Edit & Refine
-              </Button>
+              <div className="flex gap-3">
+                <Button onClick={handleStep1Next} className="flex-1 bg-[#D4A017] text-[#0A0B14] hover:bg-[#D4A017]/90 font-semibold py-3">
+                  Next: Edit & Refine
+                </Button>
+              </div>
             </div>
           )}
 
@@ -504,9 +510,14 @@ export default function Home() {
                 </div>
               </div>
 
-              <Button onClick={handleStep2Next} className="w-full bg-[#D4A017] text-[#0A0B14] hover:bg-[#D4A017]/90 font-semibold py-3">
-                Next: Closer Skills
-              </Button>
+              <div className="flex gap-3">
+                <Button onClick={() => setCurrentStep(1)} className="flex-1 bg-white/10 text-white hover:bg-white/20 font-semibold py-3">
+                  Back
+                </Button>
+                <Button onClick={handleStep2Next} className="flex-1 bg-[#D4A017] text-[#0A0B14] hover:bg-[#D4A017]/90 font-semibold py-3">
+                  Next: Closer Skills
+                </Button>
+              </div>
             </div>
           )}
 
@@ -574,9 +585,14 @@ export default function Home() {
                 </div>
               </div>
 
-              <Button onClick={handleStep3Next} disabled={isGenerating} className="w-full bg-[#D4A017] text-[#0A0B14] hover:bg-[#D4A017]/90 font-semibold py-3">
-                {isGenerating ? <Loader2 className="animate-spin mr-2" size={16} /> : "Generate Your Kenji Prompt"}
-              </Button>
+              <div className="flex gap-3">
+                <Button onClick={() => setCurrentStep(2)} className="flex-1 bg-white/10 text-white hover:bg-white/20 font-semibold py-3">
+                  Back
+                </Button>
+                <Button onClick={handleStep3Next} disabled={isGenerating} className="flex-1 bg-[#D4A017] text-[#0A0B14] hover:bg-[#D4A017]/90 font-semibold py-3">
+                  {isGenerating ? <Loader2 className="animate-spin mr-2" size={16} /> : "Generate Your Kenji Prompt"}
+                </Button>
+              </div>
             </div>
           )}
 
@@ -801,6 +817,8 @@ export default function Home() {
               ) : null}
             </div>
           )}
+        </div>
+        </div>
         </div>
       </div>
 

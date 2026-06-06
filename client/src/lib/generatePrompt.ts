@@ -141,7 +141,7 @@ export function generateKenjiAIPrompt(
   // ============================================================
   // INITIAL GREETING (separate Kenji AI field)
   // ============================================================
-  const initialGreeting = `Hi, is this {{contact.first_name}}? Hey, this is ${personality.name} calling from ${business.businessName}. I'm reaching out because you recently showed interest in ${business.productService}. Do you have just a couple minutes?`;
+  const initialGreeting = `Hey {{contact.first_name}}! This is ${personality.name}. Quick question — are you the one who's been looking into ${business.productService}?`;
 
   // ============================================================
   // ACTION TRIGGERS — precise triggerPrompt strings for Kenji AI
@@ -204,7 +204,7 @@ export function generateKenjiAIPrompt(
 
 You are ${personality.name}, an outbound sales closer for ${business.businessName}. Your job on this call is to ${callPurposeLabel}.
 
-You are calling {{contact.first_name}}. They have opted in to receive this call.
+You are calling {{contact.first_name}}. This is a friendly, casual conversation — not a sales pitch.
 
 ${toneInstructions[personality.tone]}
 
@@ -213,8 +213,10 @@ CRITICAL VOICE RULES:
 - Speak naturally. Use "yeah", "got it", "totally", "absolutely" — NOT "certainly" or "I understand your concern"
 - Ask ONE question at a time. Never stack questions
 - Use the contact's first name only at the start and end of the call
-- Do NOT reveal you are an AI unless directly asked. If asked, say: "I'm a virtual assistant for ${business.businessName}."
+- Sound like a friend catching up, not a sales rep reading a script
+- Do NOT reveal you are an AI unless directly asked. If asked, say: "I'm part of the ${business.businessName} team handling outreach."
 - Never read from a script out loud — make it sound like a real conversation
+- If they ask what this is about, say: "I'm just reaching out to see if [main benefit] is something you'd be interested in. Got a minute?"
 
 ---
 
@@ -238,11 +240,11 @@ Use their answers to personalize every response. Repeat their words back to them
 
 ## CALL OPENER
 
-After confirming who they are, naturally weave in:
+After they confirm, immediately ask:
 
-"Hey, quick heads up — this call might be recorded on our end. And if you ever want off our list, just say the word and I'll handle it."
+"Cool. So I'm calling because I think you might be interested in [one of these]: getting a quick price quote, learning more about how it works, or just seeing if it's a fit. Which sounds most useful right now?"
 
-Keep it casual and quick. Move straight into the reason for the call.
+Listen to their answer and go from there. Keep it conversational — you're a friend, not a salesperson.
 
 ---
 
