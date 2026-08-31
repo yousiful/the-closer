@@ -232,7 +232,15 @@ export function generateKenjiAIPrompt(
     triggerPrompt: `When the contact asks to speak to a real person, a human, a manager, the owner, or someone in sales, or says any of: "let me talk to a person", "I want to talk to a real human", "can I speak to someone", "put me through to", "transfer me", "connect me with someone", "get me your manager", "I'd rather talk to a person", "I don't want to talk to a machine", "is this a robot", "am I talking to a bot", "are you AI", "stop with the script", "just let me talk to somebody". Also trigger when they ask a question you cannot answer from PRODUCT KNOWLEDGE and it is blocking the decision, or when they are frustrated with you twice in a row.`,
     action: "Live Call Transfer (Agent Goals → Actions → Live Call Transfer) + Add Tag",
     ghlTag: "transferred-to-human",
-    notes: `Say: "Absolutely, let me get you to someone on the team right now. One moment." Do not argue, do not try one more pitch first. Transfer immediately. If nobody picks up, fall back to booking a time.`,
+    notes: `Say: "Absolutely, let me get you to someone on the team right now. One moment." Do not argue, do not try one more pitch first. Transfer immediately. If the transfer isn't answered and control returns to you, do NOT just leave it there, immediately run "Transfer Failed — SMS/Email Follow-Up" below instead of silently ending the call.`,
+  };
+
+  const transferFailedFallbackTrigger: ActionTrigger = {
+    name: "Transfer Failed — SMS/Email Follow-Up",
+    triggerPrompt: `When a live transfer was attempted (from "Transfer to Human", "Qualified — Transfer to Sales", or "Route Existing Customer (Inbound Only)") and it was not answered, or control returns to you because nobody picked up within a normal wait.`,
+    action: "Send SMS + Send Email (to the contact) + Trigger Workflow (internal team notification) + Add Tag",
+    ghlTag: "transfer-failed-followup",
+    notes: `Do not just apologize and hang up, a missed transfer with no follow-up loses the lead. Say on the call: "Looks like the team's tied up right now, but I've got you, I'm sending you a text and an email right now so you're not left hanging, and someone will reach out shortly." Confirm {{contact.email}} and {{contact.phone}} are populated before this fires (use "Extract Contact Info" first if either is missing). The SMS/Email content should be short and concrete: who they talked to, what they were looking for, and that a real person will follow up, not a generic "we'll be in touch." Also fires the internal notification workflow so the team actually knows to call back, a fallback that only reaches the contact and never alerts a human isn't a real fallback.`,
   };
 
   const sharedTriggers: ActionTrigger[] = [
@@ -308,7 +316,7 @@ export function generateKenjiAIPrompt(
       triggerPrompt: `On an INBOUND call, when the caller says they are already a customer, mentions an existing account, order, invoice, or says "I'm calling about my account" or "I already signed up".`,
       action: "Live Call Transfer (to support queue / account team) + Add Tag",
       ghlTag: "existing-customer",
-      notes: `Do not pitch an existing customer. Say: "Got it, you're already with us. Let me get you to the right person." Then transfer.`,
+      notes: `Do not pitch an existing customer. Say: "Got it, you're already with us. Let me get you to the right person." Then transfer. If it isn't answered and control returns to you, run "Transfer Failed — SMS/Email Follow-Up" rather than leaving them stuck.`,
     },
   ];
 
@@ -319,7 +327,7 @@ export function generateKenjiAIPrompt(
           triggerPrompt: `When the contact has met ALL of the criteria listed in QUALIFICATION CRITERIA below, based on what they've actually told you on this call, not assumed.`,
           action: "Live Call Transfer (Agent Goals → Actions → Live Call Transfer, point at your sales team's real number) + Add Tag",
           ghlTag: "qualified-transferred",
-          notes: `Say: "Based on everything you've told me, this is exactly what we're looking for. Let me get you connected with [specialist] right now." Then transfer immediately, don't keep talking. This is a different trigger from "Transfer to Human", that one fires when THEY ask for a person, this one fires on YOUR qualification judgment.`,
+          notes: `Say: "Based on everything you've told me, this is exactly what we're looking for. Let me get you connected with [specialist] right now." Then transfer immediately, don't keep talking. This is a different trigger from "Transfer to Human", that one fires when THEY ask for a person, this one fires on YOUR qualification judgment. If it isn't answered and control returns to you, run "Transfer Failed — SMS/Email Follow-Up", a qualified contact who gets no follow-up at all is worse than the wait.`,
         },
         {
           name: "Not Qualified",
@@ -334,6 +342,7 @@ export function generateKenjiAIPrompt(
   const actionTriggers: ActionTrigger[] = [
     ...inboundOnlyTriggers,
     ...sharedTriggers,
+    transferFailedFallbackTrigger,
     ...qualifyAndTransferTriggers,
     optOutTriggerOutbound,
     optOutTriggerInbound,
@@ -682,7 +691,7 @@ ${isQualifyAndTransfer
       ? `
 ### QUALIFIED — TRANSFERRED:
 "Based on everything you've told me, this is exactly what we're looking for. Let me get you connected right now."
-→ ACTION TRIGGER: "Qualified — Transfer to Sales", transfer immediately, don't keep talking once this fires
+→ ACTION TRIGGER: "Qualified — Transfer to Sales", transfer immediately, don't keep talking once this fires. Not answered? → ACTION TRIGGER: "Transfer Failed — SMS/Email Follow-Up", do not let a qualified contact just hang up with nothing
 
 ### NOT QUALIFIED:
 "Based on what you've told me, I don't think this is the right fit for us right now, and I don't want to waste your time." [Offer a real alternative if you have one, otherwise skip straight to closing out]
@@ -695,7 +704,7 @@ ${isQualifyAndTransfer
 
 ### THEY WANT A PERSON:
 "Absolutely, let me get you to someone right now. One moment."
-→ ACTION TRIGGER: "Transfer to Human", fires immediately, no pitch first
+→ ACTION TRIGGER: "Transfer to Human", fires immediately, no pitch first. Not answered? → ACTION TRIGGER: "Transfer Failed — SMS/Email Follow-Up", never just end the call on a failed transfer
 
 ### IF INBOUND — EXISTING CUSTOMER:
 "Got it, you're already with us. Let me get you to the right person."
@@ -816,6 +825,7 @@ This applies the same way on inbound and outbound. Direction changes the opening
     `KYC: Complete Know Your Customer verification in AI Agents → Voice AI → Enable Outbound Calls before first outbound use.`,
     `VOICE SELECTION: Choose a natural-sounding voice, avoid robotic tones. Test with your own number first.`,
     `CALL TRANSFER: Add a "Live Call Transfer" action in Agent Goals and point it at a number that actually gets answered. Test it before going live, a failed transfer is worse than no transfer.`,
+    `TRANSFER FALLBACK: build "Transfer Failed — SMS/Email Follow-Up" as real Send SMS + Send Email actions (not just a note in the prompt) plus an internal notification workflow so your team knows to call back. This is what catches a lead when a live transfer isn't answered, which will happen sometimes no matter how good the transfer number is. Test it by intentionally not answering a test transfer call and confirming both the SMS and the internal notification actually fire.`,
     ...(isQualifyAndTransfer
       ? [
           `QUALIFY & TRANSFER SETUP: "Qualified — Transfer to Sales" needs its own Live Call Transfer action pointed at your actual sales team's number, separate from the generic "Transfer to Human" action (that one is for when a contact explicitly asks for a person; this one fires on the agent's own qualification judgment). Test both a qualifying and a disqualifying scenario before going live to confirm the agent actually branches correctly.`,
