@@ -776,8 +776,11 @@ Never run this on someone who asked to be removed, asked for a human, said it's 
     ? `AGENT DIRECTION: Set "Agent Direction" to INBOUND in the agent settings, then attach the agent to the phone number that receives your calls.`
     : `AGENT DIRECTION: Set "Agent Direction" to OUTBOUND in the agent settings, then attach the agent to your outbound workflow.`;
 
+  const oneAgentOnePromptNote = `IMPORTANT, GHL HAS ONE PROMPT FIELD PER AGENT: GHL's Advanced Mode Prompt field is not split into an inbound version and an outbound version on the same agent. Whatever direction you generated this prompt for (${isInbound ? "INBOUND" : "OUTBOUND"}) is the ONLY direction this specific prompt is written for. If you need BOTH inbound and outbound behavior, you need TWO SEPARATE AGENTS in GHL, each with its own Agent Direction setting and its own complete prompt. Run this wizard a second time with the other Call Direction selected, and paste that output into a second, separate agent. Do not paste an inbound-written prompt into an outbound agent or the reverse, the compliance language and opening script are genuinely different call flows, not cosmetic variants.`;
+
   const sharedSetupNotes = [
     directionSetupNote,
+    oneAgentOnePromptNote,
     `INITIAL GREETING: Paste into Agent Details → "Initial Greeting Message" (NOT in the main prompt field)`,
     `MAIN PROMPT: Paste into Agent Goals → Advanced Mode → Prompt field. Click "Evaluate" to test before going live.`,
     `ACTION TRIGGERS: Go to Agent Goals → Actions tab. Add each action from the "Action Triggers" tab above. Copy the triggerPrompt exactly as written.`,

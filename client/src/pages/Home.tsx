@@ -266,6 +266,13 @@ export default function Home() {
                 })}
               </div>
 
+              <div className="bg-[#D4A017]/8 border border-[#D4A017]/20 rounded-lg p-4 mb-8">
+                <p className="text-xs text-[#D4A017] font-semibold mb-1">⚡ GHL has one prompt field per agent</p>
+                <p className="text-xs text-white/50 leading-relaxed">
+                  This generates a prompt for one direction only. If you need both inbound and outbound behavior, that's two separate agents in GHL, each with its own Agent Direction setting and its own prompt. Run this wizard again with the other direction selected for the second agent, don't paste an inbound and outbound prompt into the same one.
+                </p>
+              </div>
+
               <div className="bg-white/3 border border-white/10 rounded-xl p-5 mb-8">
                 <Label className="text-white/70 text-xs font-semibold mb-2 block">WHAT THIS CALL SHOULD ACCOMPLISH</Label>
                 <Select value={business.callPurpose} onValueChange={(value: any) => setBusiness({ ...business, callPurpose: value })}>
