@@ -31,7 +31,7 @@ export interface BusinessInfo {
   mainBenefit: string;
   price: string;
   commonObjections: string;
-  callPurpose: "book_appointment" | "qualify_lead" | "follow_up" | "close_sale";
+  callPurpose: "book_appointment" | "qualify_lead" | "follow_up" | "close_sale" | "qualify_and_transfer";
   bookingCalendar: boolean;
   // Deep product knowledge the agent can answer from. Free text, one fact or
   // Q&A pair per line.
@@ -39,6 +39,12 @@ export interface BusinessInfo {
   trialLink?: string;
   websiteUrl?: string;
   guaranteePolicy?: string;
+  // Only used when callPurpose is "qualify_and_transfer". The real bar a
+  // contact must clear before the agent transfers them live, one criterion
+  // per line (e.g. "Budget of $5k+/month", "Is the decision maker",
+  // "Ready to start within 30 days"). Without this the agent has nothing
+  // concrete to qualify against and would either transfer everyone or no one.
+  qualifyingCriteria?: string;
 }
 
 export interface CloserPersonality {
@@ -149,6 +155,20 @@ function formatProductKnowledge(raw: string | undefined): string {
     .join("\n");
 }
 
+// ============================================================
+// Qualifying criteria block — same one-per-line format as
+// product knowledge, reused for the QUALIFICATION section.
+// ============================================================
+function formatQualifyingCriteria(raw: string | undefined): string {
+  if (!raw || !raw.trim()) return "";
+  return raw
+    .split("\n")
+    .map((line) => line.trim().replace(/^[-*•]\s*/, ""))
+    .filter(Boolean)
+    .map((line) => `- ${line}`)
+    .join("\n");
+}
+
 const BURN_THE_BOATS_OBJECTION = `OBJECTION: "Can we split the payment?" or "Let me think about it" or "I need to do it later"
 
 SAY: "Yeah, totally. But real quick, what's the main thing holding you back?"
@@ -181,12 +201,15 @@ export function generateKenjiAIPrompt(
     qualify_lead: "qualify the lead and determine if they are a fit",
     follow_up: "follow up on their previous inquiry and move them forward",
     close_sale: "close the sale or get a commitment on the call",
+    qualify_and_transfer: "qualify the contact against real criteria, and transfer live ONLY the ones who actually meet the bar",
   };
 
+  const isQualifyAndTransfer = business.callPurpose === "qualify_and_transfer";
   const callPurposeLabel = callPurposeMap[business.callPurpose];
   const ttsPricing = formatPriceForTTS(business.price);
   const topic = shortTopic(business.productService);
   const knowledgeBlock = formatProductKnowledge(business.productKnowledge);
+  const qualifyingCriteriaBlock = formatQualifyingCriteria(business.qualifyingCriteria);
 
   // ============================================================
   // INITIAL GREETING (separate Kenji AI field, static text, said
@@ -289,9 +312,29 @@ export function generateKenjiAIPrompt(
     },
   ];
 
+  const qualifyAndTransferTriggers: ActionTrigger[] = isQualifyAndTransfer
+    ? [
+        {
+          name: "Qualified — Transfer to Sales",
+          triggerPrompt: `When the contact has met ALL of the criteria listed in QUALIFICATION CRITERIA below, based on what they've actually told you on this call, not assumed.`,
+          action: "Live Call Transfer (Agent Goals → Actions → Live Call Transfer, point at your sales team's real number) + Add Tag",
+          ghlTag: "qualified-transferred",
+          notes: `Say: "Based on everything you've told me, this is exactly what we're looking for. Let me get you connected with [specialist] right now." Then transfer immediately, don't keep talking. This is a different trigger from "Transfer to Human", that one fires when THEY ask for a person, this one fires on YOUR qualification judgment.`,
+        },
+        {
+          name: "Not Qualified",
+          triggerPrompt: `When the contact does NOT meet one or more of the criteria in QUALIFICATION CRITERIA below, after you've actually asked and given them a fair chance to answer, not assumed from a hunch.`,
+          action: "Add Tag + Update Custom Field (Disposition = Not Qualified)",
+          ghlTag: "not-qualified",
+          notes: `Do not transfer. Be straight and respectful: "Based on what you've told me, I don't think this is the right fit for us right now, and I don't want to waste your time." Offer whatever real alternative you have (a resource, a different tier, a referral ask), then close out clean. This is a distinct outcome from "Mark Not Interested", someone can be genuinely interested and still not qualify, track those separately.`,
+        },
+      ]
+    : [];
+
   const actionTriggers: ActionTrigger[] = [
     ...inboundOnlyTriggers,
     ...sharedTriggers,
+    ...qualifyAndTransferTriggers,
     optOutTriggerOutbound,
     optOutTriggerInbound,
   ];
@@ -435,7 +478,24 @@ HOW TO USE THIS:
 
 ---
 
-${personality.specialties.length
+${isQualifyAndTransfer
+      ? `## QUALIFICATION CRITERIA
+
+This call's whole job is to filter, not to sell. Your team only wants a live transfer for contacts who actually clear this bar:
+
+${qualifyingCriteriaBlock || `- (No specific criteria were provided. Default to: they have a real, current need for ${business.productService}, and they are the person who can say yes.)`}
+
+HOW TO USE THIS:
+- Ask enough real questions in STEP 2 to check EVERY criterion above before you decide. Do not guess, do not assume, do not transfer on a hunch or because the conversation feels positive
+- If they clearly meet ALL of it → ACTION TRIGGER: "Qualified — Transfer to Sales", transfer immediately, do not keep pitching once they're qualified, that is the sales team's job now
+- If they clearly miss ANY of it → ACTION TRIGGER: "Not Qualified", do not transfer. Being liked is not the goal here, an unqualified transfer wastes the sales team's time worse than no transfer at all
+- If it's genuinely unclear after asking, ask one direct clarifying question before deciding either way. Do not transfer "just in case"
+- Never tell the contact they failed to qualify in those words. Be respectful and direct instead, see NOT QUALIFIED under CALL ENDINGS
+
+---
+
+`
+      : ""}${personality.specialties.length
       ? `## WHERE YOU'RE SHARPEST
 
 You've closed a lot of these calls. Lean on it when it fits:
@@ -482,21 +542,25 @@ Keep this under 3 sentences. Do not pitch, bridge.
 
 ### STEP 4 — THE ASK
 
-IF OUTBOUND → ${business.callPurpose === "book_appointment"
-      ? `"I'd love to get you on a call with our team to go deeper on this. I've got [day] and [day] available, which works better for you?"`
-      : business.callPurpose === "close_sale"
-        ? `"Based on everything you've told me, it sounds like this is a fit. Are you ready to move forward today?"`
-        : business.callPurpose === "qualify_lead"
-          ? `"Before I go any further, I want to make sure this is actually the right fit for you. Can I ask a couple quick questions?"`
-          : `"I wanted to follow up and see where your head is at. Are you still looking to ${business.mainBenefit}?"`}
+IF OUTBOUND → ${isQualifyAndTransfer
+      ? `Do not ask "are you ready to move forward". Instead, confirm you've actually checked every line in QUALIFICATION CRITERIA above using what they told you in STEP 2. If any criterion is still unclear, ask ONE direct question to close the gap before deciding: "Quick one before I go further, [specific missing criterion]?" Then: IF QUALIFIED → "Based on everything you've told me, this is exactly what we're looking for. Let me get you connected with our specialist right now." → ACTION TRIGGER: "Qualified — Transfer to Sales". IF NOT QUALIFIED → go straight to the NOT QUALIFIED ending below, do not transfer, do not keep selling.`
+      : business.callPurpose === "book_appointment"
+        ? `"I'd love to get you on a call with our team to go deeper on this. I've got [day] and [day] available, which works better for you?"`
+        : business.callPurpose === "close_sale"
+          ? `"Based on everything you've told me, it sounds like this is a fit. Are you ready to move forward today?"`
+          : business.callPurpose === "qualify_lead"
+            ? `"Before I go any further, I want to make sure this is actually the right fit for you. Can I ask a couple quick questions?"`
+            : `"I wanted to follow up and see where your head is at. Are you still looking to ${business.mainBenefit}?"`}
 
-IF INBOUND → ${business.callPurpose === "book_appointment"
-      ? `"Sounds like a fit. Let me get you on the calendar with the team so you're not stuck waiting. I've got [day] and [day], which works better?"`
-      : business.callPurpose === "close_sale"
-        ? `"Honestly, from what you're describing, this is exactly what it's for. Want to get you set up while I've got you on the phone?"`
-        : business.callPurpose === "qualify_lead"
-          ? `"Sounds like you're in the right place. Couple quick questions and I'll tell you straight whether this is a fit for you or not."`
-          : `"Glad you called back. Where'd you land on it?"`}
+IF INBOUND → ${isQualifyAndTransfer
+      ? `Same filter, same standard. Confirm every line in QUALIFICATION CRITERIA above from what they've told you, ask one direct question if something's still unclear, then: IF QUALIFIED → "Sounds like exactly what our team handles. Let me get you connected right now." → ACTION TRIGGER: "Qualified — Transfer to Sales". IF NOT QUALIFIED → go straight to the NOT QUALIFIED ending below, do not transfer.`
+      : business.callPurpose === "book_appointment"
+        ? `"Sounds like a fit. Let me get you on the calendar with the team so you're not stuck waiting. I've got [day] and [day], which works better?"`
+        : business.callPurpose === "close_sale"
+          ? `"Honestly, from what you're describing, this is exactly what it's for. Want to get you set up while I've got you on the phone?"`
+          : business.callPurpose === "qualify_lead"
+            ? `"Sounds like you're in the right place. Couple quick questions and I'll tell you straight whether this is a fit for you or not."`
+            : `"Glad you called back. Where'd you land on it?"`}
 
 URGENCY FRAMING:
 IF OUTBOUND → You interrupted them, so the urgency has to come from what staying put costs them, not from your pipeline. Sound like: "Every month this sits is another month of [their pain]." Never: "This offer expires today."
@@ -614,7 +678,17 @@ Relentless means you work a real objection harder than most reps would. It does 
 ---
 
 ## CALL ENDINGS
+${isQualifyAndTransfer
+      ? `
+### QUALIFIED — TRANSFERRED:
+"Based on everything you've told me, this is exactly what we're looking for. Let me get you connected right now."
+→ ACTION TRIGGER: "Qualified — Transfer to Sales", transfer immediately, don't keep talking once this fires
 
+### NOT QUALIFIED:
+"Based on what you've told me, I don't think this is the right fit for us right now, and I don't want to waste your time." [Offer a real alternative if you have one, otherwise skip straight to closing out]
+→ ACTION TRIGGER: "Not Qualified". Do not transfer. Do not soften this into a fake maybe, being clear now respects their time more than a vague "we'll be in touch."
+`
+      : ""}
 ### BOOKED / CLOSED:
 "Perfect. You're all set for [date/time]. I'll send a confirmation to {{contact.email}}."
 → ACTION TRIGGER: "Book Appointment"
@@ -742,6 +816,12 @@ This applies the same way on inbound and outbound. Direction changes the opening
     `KYC: Complete Know Your Customer verification in AI Agents → Voice AI → Enable Outbound Calls before first outbound use.`,
     `VOICE SELECTION: Choose a natural-sounding voice, avoid robotic tones. Test with your own number first.`,
     `CALL TRANSFER: Add a "Live Call Transfer" action in Agent Goals and point it at a number that actually gets answered. Test it before going live, a failed transfer is worse than no transfer.`,
+    ...(isQualifyAndTransfer
+      ? [
+          `QUALIFY & TRANSFER SETUP: "Qualified — Transfer to Sales" needs its own Live Call Transfer action pointed at your actual sales team's number, separate from the generic "Transfer to Human" action (that one is for when a contact explicitly asks for a person; this one fires on the agent's own qualification judgment). Test both a qualifying and a disqualifying scenario before going live to confirm the agent actually branches correctly.`,
+          `QUALIFYING CRITERIA: the bar you entered becomes the literal filter the agent checks against. Vague criteria produce vague qualifying, be as concrete as you'd be briefing a real SDR (a number, a role, a timeline), not a general vibe.`,
+        ]
+      : []),
     `PRODUCT KNOWLEDGE: Re-generate this prompt any time your pricing, setup time, or integrations change. A confidently wrong answer costs more than "let me find out".`,
   ];
 
@@ -799,6 +879,7 @@ export const CALL_PURPOSE_OPTIONS = [
   { value: "qualify_lead", label: "Qualify the Lead", description: "Determine if they're a fit before investing more time", icon: "🎯" },
   { value: "follow_up", label: "Follow Up on Inquiry", description: "Re-engage leads who showed interest but didn't convert", icon: "🔄" },
   { value: "close_sale", label: "Close the Sale", description: "Get a commitment or payment on the call", icon: "🔥" },
+  { value: "qualify_and_transfer", label: "Qualify & Transfer", description: "Filter against your real criteria, live-transfer only the ones who actually qualify", icon: "🔀" },
 ] as const;
 
 export const SPECIALTY_OPTIONS = [

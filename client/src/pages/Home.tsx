@@ -32,6 +32,7 @@ const DEFAULT_BUSINESS: BusinessInfo = {
   trialLink: "",
   websiteUrl: "",
   guaranteePolicy: "",
+  qualifyingCriteria: "",
 };
 
 const DEFAULT_PERSONALITY: CloserPersonality = {
@@ -423,6 +424,21 @@ export default function Home() {
                         {CALL_PURPOSE_OPTIONS.find((p) => p.value === business.callPurpose)?.description}
                       </p>
                     </div>
+
+                    {business.callPurpose === "qualify_and_transfer" && (
+                      <div>
+                        <Label className="text-white/70 text-xs font-semibold mb-2 block">QUALIFYING CRITERIA *</Label>
+                        <Textarea
+                          placeholder={"One criterion per line, be as concrete as briefing a real SDR.\n\ne.g.\nBudget of $5,000+/month\nIs the actual decision maker\nReady to start within 30 days"}
+                          value={business.qualifyingCriteria}
+                          onChange={(e) => setBusiness({ ...business, qualifyingCriteria: e.target.value })}
+                          className="bg-white/5 border-white/10 text-white placeholder:text-white/30 min-h-24"
+                        />
+                        <p className="text-xs text-white/40 mt-1.5">
+                          The agent only transfers live when a contact clears every line here. Vague criteria produce vague qualifying.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -550,6 +566,17 @@ export default function Home() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {business.callPurpose === "qualify_and_transfer" && (
+                  <div>
+                    <Label className="text-white/70 text-xs font-semibold mb-2 block">QUALIFYING CRITERIA (one per line)</Label>
+                    <Textarea
+                      value={business.qualifyingCriteria}
+                      onChange={(e) => setBusiness({ ...business, qualifyingCriteria: e.target.value })}
+                      className="bg-white/5 border-white/10 text-white min-h-24"
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-3">
