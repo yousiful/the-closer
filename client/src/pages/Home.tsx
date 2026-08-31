@@ -1,22 +1,22 @@
 'use client';
 
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { Check, Copy, FileText, Loader2, Maximize2, X } from "lucide-react";
+import { Check, Copy, FileText, Loader2, Maximize2, PhoneCall } from "lucide-react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import BatmanQuote from "@/components/BatmanQuote";
 import EmberField from "@/components/EmberField";
 import StepIndicator from "@/components/StepIndicator";
 import PromptModal from "@/components/PromptModal";
-import { generateKenjiAIPrompt, TONE_OPTIONS, CALL_PURPOSE_OPTIONS, type BusinessInfo, type CloserPersonality, type KenjiAIPromptPackage } from "@/lib/generatePrompt";
+import { generateKenjiAIPrompt, TONE_OPTIONS, CALL_PURPOSE_OPTIONS, CALL_DIRECTION_OPTIONS, SPECIALTY_OPTIONS, type BusinessInfo, type CallDirection, type CloserPersonality, type KenjiAIPromptPackage } from "@/lib/generatePrompt";
 import { scrapeWebsite } from "@/lib/scrapeWebsite";
-import { useTypewriter } from "@/hooks/useTypewriter";
+
+const TOTAL_STEPS = 5;
 
 const DEFAULT_BUSINESS: BusinessInfo = {
   businessName: "",
@@ -26,8 +26,10 @@ const DEFAULT_BUSINESS: BusinessInfo = {
   mainBenefit: "",
   price: "",
   commonObjections: "",
+  callDirection: "outbound",
   callPurpose: "book_appointment",
   bookingCalendar: false,
+  productKnowledge: "",
   trialLink: "",
   websiteUrl: "",
   guaranteePolicy: "",
@@ -55,7 +57,7 @@ function StepHeader({ icon, step, title, subtitle }: StepHeaderProps) {
           {icon}
         </div>
         <div>
-          <p className="text-xs text-[#D4A017] font-bold uppercase tracking-wider">STEP {step} OF 4</p>
+          <p className="text-xs text-[#D4A017] font-bold uppercase tracking-wider">STEP {step} OF {TOTAL_STEPS}</p>
           <h2 className="text-2xl font-bold text-white">{title}</h2>
         </div>
       </div>
@@ -105,20 +107,19 @@ export default function Home() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedPrompt, setGeneratedPrompt] = useState<KenjiAIPromptPackage | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
-  const [promptStarted, setPromptStarted] = useState(false);
   const [isScraping, setIsScraping] = useState(false);
   const [modal, setModal] = useState<{ open: boolean; title: string; badge?: string; subtitle?: string; content: string; copyKey: string; tip?: string } | null>(null);
-
-  // Typewriter removed — prompt appears instantly
-  const typewriterDone = true;
-  const typewriterText = generatedPrompt?.mainPrompt ?? "";
 
   const completeStep = (step: number) => {
     setCompletedSteps((prev) => Array.from(new Set([...prev, step])));
     setCurrentStep(step + 1);
   };
 
-  const handleStep1Next = () => {
+  const handleDirectionNext = () => {
+    completeStep(1);
+  };
+
+  const handleBusinessNext = () => {
     if (!business.businessName.trim()) {
       toast.error("Please enter your business name.");
       return;
@@ -127,10 +128,10 @@ export default function Home() {
       toast.error("Please describe what you sell.");
       return;
     }
-    completeStep(1);
+    completeStep(2);
   };
 
-  const handleStep2Next = () => {
+  const handleRefineNext = () => {
     if (!business.targetCustomer.trim()) {
       toast.error("Who is your ideal customer?");
       return;
@@ -139,18 +140,17 @@ export default function Home() {
       toast.error("What's the main transformation you deliver?");
       return;
     }
-    completeStep(2);
+    completeStep(3);
   };
 
-  const handleStep3Next = () => {
+  const handleGenerate = () => {
     if (!personality.name.trim()) {
       toast.error("Give your closer a name.");
       return;
     }
-    completeStep(3);
+    completeStep(4);
     const result = generateKenjiAIPrompt(business, personality);
     setGeneratedPrompt(result);
-    setPromptStarted(true);
   };
 
   const handleCopy = useCallback(async (text: string, key: string) => {
@@ -220,10 +220,11 @@ export default function Home() {
               currentStep={currentStep}
               completedSteps={completedSteps}
               steps={[
-                { id: 1, label: "Business Info", sublabel: "Tell us about your offer" },
-                { id: 2, label: "Edit & Refine", sublabel: "Dial in the details" },
-                { id: 3, label: "Closer Skills", sublabel: "Customize your agent" },
-                { id: 4, label: "Kenji Prompt", sublabel: "Ready to deploy" },
+                { id: 1, label: "Call Direction", sublabel: "Inbound or outbound" },
+                { id: 2, label: "Business Info", sublabel: "Tell us about your offer" },
+                { id: 3, label: "Edit & Refine", sublabel: "Dial in the details" },
+                { id: 4, label: "Closer Skills", sublabel: "Customize your agent" },
+                { id: 5, label: "Kenji Prompt", sublabel: "Ready to deploy" },
               ]}
             />
           </div>
@@ -231,11 +232,73 @@ export default function Home() {
         {/* Main Content */}
         <div className="lg:col-span-3">
           {/* ================================================================
-              STEP 1 — Business Info
+              STEP 1 — Call Direction
               ================================================================ */}
           {currentStep === 1 && (
             <div className="step-enter">
-              <StepHeader icon={<FileText size={20} />} step={1} title="Tell us about your business" subtitle="Drop a URL, paste your pitch, or enter manually" />
+              <StepHeader icon={<PhoneCall size={20} />} step={1} title="How do these calls start?" subtitle="This changes the whole prompt, not just a label" />
+
+              <div className="grid md:grid-cols-2 gap-4 mb-8">
+                {CALL_DIRECTION_OPTIONS.map((opt) => {
+                  const selected = business.callDirection === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => setBusiness({ ...business, callDirection: opt.value as CallDirection })}
+                      className={cn(
+                        "text-left rounded-xl p-6 border transition-all",
+                        selected
+                          ? "border-[#D4A017] bg-[#D4A017]/10"
+                          : "border-white/10 bg-white/3 hover:border-white/25"
+                      )}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-2xl">{opt.icon}</span>
+                        <span className={cn("text-lg font-bold", selected ? "text-[#D4A017]" : "text-white/80")}>
+                          {opt.label}
+                        </span>
+                        {selected && <Check size={16} className="text-[#D4A017] ml-auto" />}
+                      </div>
+                      <p className="text-sm text-white/60 mb-3">{opt.description}</p>
+                      <p className="text-xs text-white/35 leading-relaxed">{opt.detail}</p>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="bg-white/3 border border-white/10 rounded-xl p-5 mb-8">
+                <Label className="text-white/70 text-xs font-semibold mb-2 block">WHAT THIS CALL SHOULD ACCOMPLISH</Label>
+                <Select value={business.callPurpose} onValueChange={(value: any) => setBusiness({ ...business, callPurpose: value })}>
+                  <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#1a1b2e] border-white/10">
+                    {CALL_PURPOSE_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value} className="text-white">
+                        {opt.icon} {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-white/40 mt-2">
+                  {CALL_PURPOSE_OPTIONS.find((p) => p.value === business.callPurpose)?.description}
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <Button onClick={handleDirectionNext} className="flex-1 bg-[#D4A017] text-[#0A0B14] hover:bg-[#D4A017]/90 font-semibold py-3">
+                  Next: Business Info
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* ================================================================
+              STEP 2 — Business Info
+              ================================================================ */}
+          {currentStep === 2 && (
+            <div className="step-enter">
+              <StepHeader icon={<FileText size={20} />} step={2} title="Tell us about your business" subtitle="Drop a URL, paste your pitch, or enter manually" />
 
               <div className="space-y-4 mb-8">
                 {/* Input Method Tabs */}
@@ -380,38 +443,37 @@ export default function Home() {
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label className="text-white/70 text-xs font-semibold mb-2 block">CALL PURPOSE</Label>
-                        <Select value={business.callPurpose} onValueChange={(value: any) => setBusiness({ ...business, callPurpose: value })}>
-                          <SelectTrigger className="bg-white/5 border-white/10 text-white">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-[#1a1b2e] border-white/10">
-                            {CALL_PURPOSE_OPTIONS.map((opt) => (
-                              <SelectItem key={opt.value} value={opt.value} className="text-white">
-                                {opt.icon} {opt.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label className="text-white/70 text-xs font-semibold mb-2 block">GUARANTEE POLICY</Label>
-                        <Input
-                          placeholder="e.g. 30-day money-back guarantee"
-                          value={business.guaranteePolicy}
-                          onChange={(e) => setBusiness({ ...business, guaranteePolicy: e.target.value })}
-                          className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
-                        />
-                      </div>
+                    <div>
+                      <Label className="text-white/70 text-xs font-semibold mb-2 block">GUARANTEE POLICY</Label>
+                      <Input
+                        placeholder="e.g. 30-day money-back guarantee"
+                        value={business.guaranteePolicy}
+                        onChange={(e) => setBusiness({ ...business, guaranteePolicy: e.target.value })}
+                        className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+                      />
+                    </div>
+
+                    <div>
+                      <Label className="text-white/70 text-xs font-semibold mb-2 block">PRODUCT KNOWLEDGE / FAQ</Label>
+                      <Textarea
+                        placeholder={"One fact per line. How it works, setup time, what's included, integrations, contract terms, anything prospects actually ask.\n\ne.g.\nSetup takes 3 to 5 business days\nMonth to month, cancel with 30 days notice\nWorks alongside your existing CRM, no migration needed\nIntegrates with Zapier, Google Calendar, QuickBooks"}
+                        value={business.productKnowledge}
+                        onChange={(e) => setBusiness({ ...business, productKnowledge: e.target.value })}
+                        className="bg-white/5 border-white/10 text-white placeholder:text-white/30 min-h-32"
+                      />
+                      <p className="text-xs text-white/40 mt-1.5">
+                        This becomes the agent's PRODUCT KNOWLEDGE section. The more specific you are here, the less it deflects. It still won't promise results.
+                      </p>
                     </div>
                   </div>
                 )}
               </div>
 
               <div className="flex gap-3">
-                <Button onClick={handleStep1Next} className="flex-1 bg-[#D4A017] text-[#0A0B14] hover:bg-[#D4A017]/90 font-semibold py-3">
+                <Button onClick={() => setCurrentStep(1)} className="flex-1 bg-white/10 text-white hover:bg-white/20 font-semibold py-3">
+                  Back
+                </Button>
+                <Button onClick={handleBusinessNext} className="flex-1 bg-[#D4A017] text-[#0A0B14] hover:bg-[#D4A017]/90 font-semibold py-3">
                   Next: Edit & Refine
                 </Button>
               </div>
@@ -419,11 +481,11 @@ export default function Home() {
           )}
 
           {/* ================================================================
-              STEP 2 — Edit & Refine
+              STEP 3 — Edit & Refine
               ================================================================ */}
-          {currentStep === 2 && (
+          {currentStep === 3 && (
             <div className="step-enter">
-              <StepHeader icon={<FileText size={20} />} step={2} title="Edit & refine" subtitle="Dial in the details" />
+              <StepHeader icon={<FileText size={20} />} step={3} title="Edit & refine" subtitle="Dial in the details" />
 
               <div className="space-y-4 bg-white/3 border border-white/10 rounded-xl p-6 mb-8">
                 <div>
@@ -508,13 +570,22 @@ export default function Home() {
                     />
                   </div>
                 </div>
+
+                <div>
+                  <Label className="text-white/70 text-xs font-semibold mb-2 block">PRODUCT KNOWLEDGE / FAQ (one fact per line)</Label>
+                  <Textarea
+                    value={business.productKnowledge}
+                    onChange={(e) => setBusiness({ ...business, productKnowledge: e.target.value })}
+                    className="bg-white/5 border-white/10 text-white min-h-32"
+                  />
+                </div>
               </div>
 
               <div className="flex gap-3">
-                <Button onClick={() => setCurrentStep(1)} className="flex-1 bg-white/10 text-white hover:bg-white/20 font-semibold py-3">
+                <Button onClick={() => setCurrentStep(2)} className="flex-1 bg-white/10 text-white hover:bg-white/20 font-semibold py-3">
                   Back
                 </Button>
-                <Button onClick={handleStep2Next} className="flex-1 bg-[#D4A017] text-[#0A0B14] hover:bg-[#D4A017]/90 font-semibold py-3">
+                <Button onClick={handleRefineNext} className="flex-1 bg-[#D4A017] text-[#0A0B14] hover:bg-[#D4A017]/90 font-semibold py-3">
                   Next: Closer Skills
                 </Button>
               </div>
@@ -522,11 +593,11 @@ export default function Home() {
           )}
 
           {/* ================================================================
-              STEP 3 — Closer Personality
+              STEP 4 — Closer Personality
               ================================================================ */}
-          {currentStep === 3 && (
+          {currentStep === 4 && (
             <div className="step-enter">
-              <StepHeader icon={<FileText size={20} />} step={3} title="Closer skills" subtitle="Customize your agent" />
+              <StepHeader icon={<FileText size={20} />} step={4} title="Closer skills" subtitle="Customize your agent" />
 
               <div className="space-y-4 bg-white/3 border border-white/10 rounded-xl p-6 mb-8">
                 <div>
@@ -561,7 +632,7 @@ export default function Home() {
                 <div>
                   <Label className="text-white/70 text-xs font-semibold mb-2 block">SPECIALTIES (select all that apply)</Label>
                   <div className="space-y-2">
-                    {SPECIALTY_OPTIONS_LOCAL.map((spec) => (
+                    {SPECIALTY_OPTIONS.map((spec) => (
                       <label key={spec} className="flex items-center gap-2 cursor-pointer">
                         <input
                           type="checkbox"
@@ -586,10 +657,10 @@ export default function Home() {
               </div>
 
               <div className="flex gap-3">
-                <Button onClick={() => setCurrentStep(2)} className="flex-1 bg-white/10 text-white hover:bg-white/20 font-semibold py-3">
+                <Button onClick={() => setCurrentStep(3)} className="flex-1 bg-white/10 text-white hover:bg-white/20 font-semibold py-3">
                   Back
                 </Button>
-                <Button onClick={handleStep3Next} disabled={isGenerating} className="flex-1 bg-[#D4A017] text-[#0A0B14] hover:bg-[#D4A017]/90 font-semibold py-3">
+                <Button onClick={handleGenerate} disabled={isGenerating} className="flex-1 bg-[#D4A017] text-[#0A0B14] hover:bg-[#D4A017]/90 font-semibold py-3">
                   {isGenerating ? <Loader2 className="animate-spin mr-2" size={16} /> : "Generate Your Kenji Prompt"}
                 </Button>
               </div>
@@ -597,11 +668,16 @@ export default function Home() {
           )}
 
           {/* ================================================================
-              STEP 4 — Generated Kenji AI Prompt (ALL SECTIONS VISIBLE AT ONCE)
+              STEP 5 — Generated Kenji AI Prompt (ALL SECTIONS VISIBLE AT ONCE)
               ================================================================ */}
-          {currentStep === 4 && (
+          {currentStep === 5 && (
             <div className="step-enter">
-              <StepHeader icon={<FileText size={20} />} step={4} title="Your Kenji AI closer is ready" subtitle="All sections visible below — copy what you need" />
+              <StepHeader
+                icon={<FileText size={20} />}
+                step={5}
+                title={`Your Kenji AI ${business.callDirection} closer is ready`}
+                subtitle="All sections visible below, copy what you need"
+              />
 
               {isGenerating ? (
                 <div className="step-card-inactive rounded-xl p-12 flex flex-col items-center justify-center gap-4">
@@ -719,7 +795,7 @@ export default function Home() {
                     <div className="bg-[#D4A017]/8 border border-[#D4A017]/20 rounded-lg p-4">
                       <p className="text-xs text-[#D4A017] font-semibold mb-2">⚡ Kenji AI Setup Tip</p>
                       <p className="text-xs text-white/50 leading-relaxed">
-                        In Kenji AI: <strong className="text-white/70">Agent Goals → Actions tab → Add Action</strong> → paste the Trigger Prompt into the "When" field and configure the corresponding action. Add all 8 triggers for full coverage.
+                        In Kenji AI: <strong className="text-white/70">Agent Goals → Actions tab → Add Action</strong> → paste the Trigger Prompt into the "When" field and configure the corresponding action. Add all {generatedPrompt.actionTriggers.length} triggers for full coverage.
                       </p>
                     </div>
                   </div>
@@ -787,13 +863,46 @@ export default function Home() {
                     </div>
                   </div>
 
+                  {/* SETUP NOTES SECTION */}
+                  <div className="step-enter">
+                    <div className="step-card-inactive rounded-xl p-5 mb-3">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <p className="text-sm font-semibold text-white/80">Kenji AI Setup Steps</p>
+                          <p className="text-xs text-white/40 mt-0.5">Where each piece goes, in order</p>
+                        </div>
+                        <button
+                          onClick={() => handleCopy(generatedPrompt.setupNotes.join("\n"), "setup")}
+                          className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors border border-white/10 rounded-lg px-3 py-1.5 hover:border-white/20 flex-shrink-0"
+                        >
+                          {copied === "setup" ? <Check size={12} /> : <Copy size={12} />}
+                          Copy All
+                        </button>
+                      </div>
+                      <div className="space-y-2">
+                        {generatedPrompt.setupNotes.map((note: string, i: number) => (
+                          <div key={i} className="flex items-start gap-2.5 text-xs text-white/60">
+                            <span className="text-[#D4A017] font-bold font-mono flex-shrink-0">{i + 1}.</span>
+                            <span className="leading-relaxed">{note}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
                   {/* COMPLIANCE SECTION */}
                   <div className="step-enter">
                     <div className="step-card-inactive rounded-xl p-5 mb-3">
                       <div className="flex items-center justify-between mb-4">
                         <div>
-                          <p className="text-sm font-semibold text-white/80">Compliance Checklist</p>
-                          <p className="text-xs text-white/40 mt-0.5">Verify before going live</p>
+                          <p className="text-sm font-semibold text-white/80">
+                            Compliance Checklist ({business.callDirection})
+                          </p>
+                          <p className="text-xs text-white/40 mt-0.5">
+                            {business.callDirection === "inbound"
+                              ? "Inbound rules, not a copy of the outbound list. Verify before going live."
+                              : "Full TCPA/FCC posture. Verify before going live."}
+                          </p>
                         </div>
                         <button
                           onClick={() => handleCopy(generatedPrompt.complianceChecklist.join("\n"), "compliance")}
@@ -827,14 +936,3 @@ export default function Home() {
     </div>
   );
 }
-
-const SPECIALTY_OPTIONS_LOCAL = [
-  "Handling price objections",
-  "Overcoming 'I need to think about it'",
-  "Closing high-ticket offers ($5k+)",
-  "B2B enterprise sales",
-  "Coaching & consulting sales",
-  "SaaS sales cycles",
-  "Real estate & mortgage",
-  "Insurance & financial services",
-];
