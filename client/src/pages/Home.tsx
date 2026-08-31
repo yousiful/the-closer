@@ -773,9 +773,16 @@ export default function Home() {
                         {generatedPrompt.actionTriggers.map((trigger, i: number) => (
                           <div key={i} className="bg-white/3 rounded-lg p-4 border border-white/5">
                             <div className="flex items-center justify-between mb-2">
-                              <p className="text-xs font-bold text-[#D4A017]">{trigger.name}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="text-xs font-bold text-[#D4A017]">{trigger.name}</p>
+                                {trigger.ghlTag && (
+                                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+                                    #{trigger.ghlTag}
+                                  </span>
+                                )}
+                              </div>
                               <button
-                                onClick={() => handleCopy(`Action: ${trigger.action}\n\nTrigger Prompt:\n${trigger.triggerPrompt}\n\nNotes: ${trigger.notes}`, `trigger-${i}`)}
+                                onClick={() => handleCopy(`Action: ${trigger.action}${trigger.ghlTag ? `\nGHL Tag: ${trigger.ghlTag}` : ""}\n\nTrigger Prompt:\n${trigger.triggerPrompt}\n\nNotes: ${trigger.notes}`, `trigger-${i}`)}
                                 className="flex items-center gap-1 text-xs text-white/30 hover:text-white/60 transition-colors border border-white/10 rounded px-2 py-1 hover:border-white/20"
                               >
                                 {copied === `trigger-${i}` ? <Check size={10} /> : <Copy size={10} />}

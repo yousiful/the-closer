@@ -72,6 +72,10 @@ export interface ActionTrigger {
   triggerPrompt: string;
   action: string;
   notes: string;
+  // Literal GHL tag to add on this trigger (lowercase-hyphenated, GHL convention).
+  // Tags are the lowest-friction GHL mechanism, no custom field setup required,
+  // and drive downstream automation directly via the "Contact Tag Added" workflow trigger.
+  ghlTag?: string;
 }
 
 // ============================================================
@@ -199,7 +203,8 @@ export function generateKenjiAIPrompt(
   const transferTrigger: ActionTrigger = {
     name: "Transfer to Human",
     triggerPrompt: `When the contact asks to speak to a real person, a human, a manager, the owner, or someone in sales, or says any of: "let me talk to a person", "I want to talk to a real human", "can I speak to someone", "put me through to", "transfer me", "connect me with someone", "get me your manager", "I'd rather talk to a person", "I don't want to talk to a machine", "is this a robot", "am I talking to a bot", "are you AI", "stop with the script", "just let me talk to somebody". Also trigger when they ask a question you cannot answer from PRODUCT KNOWLEDGE and it is blocking the decision, or when they are frustrated with you twice in a row.`,
-    action: "Live call transfer to sales team",
+    action: "Live Call Transfer (Agent Goals → Actions → Live Call Transfer) + Add Tag",
+    ghlTag: "transferred-to-human",
     notes: `Say: "Absolutely, let me get you to someone on the team right now. One moment." Do not argue, do not try one more pitch first. Transfer immediately. If nobody picks up, fall back to booking a time.`,
   };
 
@@ -207,39 +212,44 @@ export function generateKenjiAIPrompt(
     {
       name: "Book Appointment",
       triggerPrompt: `When the contact agrees to schedule a call, meeting, or appointment, or says "yes let's do it", "book me in", "what times do you have", or "I'm ready to get started".`,
-      action: "Book Appointment Slot (connect to calendar)",
-      notes: "Collect {{contact.first_name}} and {{contact.email}} before triggering. Confirm the slot verbally.",
+      action: "Book Appointment (Calendar Action, point at your real Calendar ID) + Add Tag",
+      ghlTag: "appointment-booked",
+      notes: "Collect {{contact.first_name}} and {{contact.email}} before triggering (use {{contact.phone}} if already on file instead of re-asking for a number). Confirm the slot verbally.",
     },
     {
       name: "Extract Contact Info",
       triggerPrompt: `When the contact's name or email has not yet been confirmed, or when you need to send a confirmation, link, or follow-up to them.`,
-      action: "Extract name/email, update contact record",
-      notes: `Ask: "Just to make sure I have the right info, what's the best email to send that to?" Then extract and save.`,
+      action: "Update Standard Fields (First Name / Email) on the contact record",
+      notes: `Ask: "Just to make sure I have the right info, what's the best email to send that to?" Then extract and save. If {{contact.phone}} is already populated, confirm it's still good rather than asking again.`,
     },
     {
       name: "Send Trial Link",
       triggerPrompt: `When the contact asks to try the product, requests a demo link, says "send me the trial", "can I test it", "I want to see it first", or "send me the link to try it".`,
-      action: `Send SMS/email with trial or demo link${business.trialLink ? ": " + business.trialLink : ""}`,
+      action: `Send SMS/Email Action${business.trialLink ? ` (link: ${business.trialLink})` : " (link: reference the GHL Custom Value \"trial_link\" so it stays current without regenerating this prompt)"} + Add Tag`,
+      ghlTag: "trial-link-sent",
       notes: `Confirm their email or phone before sending. Say: "I'll send that over right now, you should get it in about 30 seconds."`,
     },
     {
       name: "Send Website / More Info",
       triggerPrompt: `When the contact asks for more information, says "send me your website", "can you email me details", or "I want to read more about it before deciding".`,
-      action: `Send SMS/email with website link${business.websiteUrl ? ": " + business.websiteUrl : ""}`,
+      action: `Send SMS/Email Action${business.websiteUrl ? ` (link: ${business.websiteUrl})` : " (link: reference the GHL Custom Value \"website_url\")"} + Add Tag`,
+      ghlTag: "info-sent",
       notes: `After sending, say: "I'll send that over now. But real quick, if everything checks out, is this something you'd move forward with?"`,
     },
     transferTrigger,
     {
       name: "Mark Not Interested",
-      triggerPrompt: `When the contact has clearly declined a second time, or says "no thanks" or "we're all set" after you have already made one re-engagement attempt, or ends the conversation without booking.`,
-      action: "Update contact field: Disposition = Not Interested. Trigger re-engagement workflow (30 days).",
-      notes: `Say: "No problem at all, I appreciate your time. Have a great day." Do NOT keep pitching after this fires.`,
+      triggerPrompt: `When the contact has clearly declined a second time, or says "no thanks" or "we're all set" after you have already made one re-engagement attempt and one referral ask, or ends the conversation without booking.`,
+      action: "Add Tag + Update Custom Field (Disposition = Not Interested) + Trigger Workflow (re-engagement nurture, 30 days)",
+      ghlTag: "not-interested",
+      notes: `Before this fires, always run the REFERRAL ASK first (see PERSISTENCE). Say: "No problem at all, I appreciate your time. Have a great day." Do NOT keep pitching after this fires. If a referral name/number was given, log it in the contact's notes so it isn't lost.`,
     },
     {
       name: "Schedule Callback",
       triggerPrompt: `When the contact asks to be reached at a different time, says "call me later", "try me again on [day]", "I'm driving", or "I'm busy right now".`,
-      action: "Update contact field: Callback Date/Time. Trigger callback workflow.",
-      notes: `Ask: "What day and time works best for you?" Confirm the time zone. Say: "Perfect, I'll have someone reach out then."`,
+      action: "Update Custom Field (Callback Date/Time) + Add Tag + Trigger Workflow (callback)",
+      ghlTag: "callback-requested",
+      notes: `Ask: "What day and time works best for you?" Confirm the time zone. Say: "Perfect, I'll have someone reach out then." Save {{contact.phone}} as the callback number unless they give you a different one.`,
     },
   ];
 
@@ -247,13 +257,15 @@ export function generateKenjiAIPrompt(
     ? {
         name: "Add to DNC / Opt-Out",
         triggerPrompt: `When the caller says "don't call me again", "take me off your list", "remove me", "stop contacting me", "no more calls", "no more texts", or any variation of asking not to be contacted going forward.`,
-        action: "Set contact DND = TRUE (Voice + SMS). Log opt-out timestamp.",
+        action: "Set Contact DND (Voice + SMS) + Add Tag. Log opt-out timestamp.",
+        ghlTag: "dnc",
         notes: `They called you, so you do not have to end the call, but you must stop all future outreach. Say: "Done, I've taken you off our outreach list. Anything else I can help you with while I've got you?" Never push back on the opt-out, never ask why.`,
       }
     : {
         name: "Add to DNC / Opt-Out",
         triggerPrompt: `When the contact says "remove me", "take me off your list", "don't call me again", "stop calling", "put me on your do not call list", or any variation of requesting to be removed.`,
-        action: "Set contact DND = TRUE (Voice). End call.",
+        action: "Set Contact DND (Voice) + Add Tag + End Call",
+        ghlTag: "dnc",
         notes: `Say: "Absolutely, I'll remove you right now. You won't hear from us again. Have a great day." Then end the call immediately. No rebuttal, no last pitch, no "before you go".`,
       };
 
@@ -261,13 +273,14 @@ export function generateKenjiAIPrompt(
     {
       name: "Identify Caller",
       triggerPrompt: `At the start of every inbound call, when the caller's record is not already matched, or when {{contact.first_name}} is blank.`,
-      action: "Extract name + phone, create or match contact record",
-      notes: `Ask: "Before we go further, who am I speaking with?" then "And what's the best number in case we get cut off?" Match to an existing contact if one exists so you do not re-ask what you already know.`,
+      action: "Update Standard Fields (Name / Phone), create or match contact record",
+      notes: `Ask: "Before we go further, who am I speaking with?" then "And what's the best number in case we get cut off?" (skip this if {{contact.phone}} is already populated from caller ID matching). Match to an existing contact if one exists so you do not re-ask what you already know.`,
     },
     {
       name: "Route Existing Customer",
       triggerPrompt: `When the caller says they are already a customer, mentions an existing account, order, invoice, or says "I'm calling about my account" or "I already signed up".`,
-      action: "Route to support queue / transfer to account team",
+      action: "Live Call Transfer (to support queue / account team) + Add Tag",
+      ghlTag: "existing-customer",
       notes: `Do not pitch an existing customer. Say: "Got it, you're already with us. Let me get you to the right person." Then transfer.`,
     },
   ];
@@ -406,7 +419,7 @@ Listen more than you talk. Repeat back what they said to show you heard them.`;
 → ACTION TRIGGER: "Route Existing Customer"
 
 ### NOT A FIT:
-"Straight answer, I don't think we're the right fit for that, and I'd rather tell you now than waste your time. [If relevant: here's what I'd look at instead.]"
+"Straight answer, I don't think we're the right fit for that, and I'd rather tell you now than waste your time. [If relevant: here's what I'd look at instead.] Before I let you go, who do you know that this might actually be right for?"
 → ACTION TRIGGER: "Mark Not Interested"
 
 ### THEY ASK NOT TO BE CONTACTED AGAIN:
@@ -426,7 +439,7 @@ Never let the call end with no next step just because they did not give a clean 
 If they agree to any day or time → ACTION TRIGGER: "Book Appointment" (book it as a short follow-up call, same action as a full booking). If they decline this too, treat it as NOT INTERESTED below. Do not end the call without trying this step first.
 
 ### NOT INTERESTED (after one re-engagement attempt):
-"No problem at all. I appreciate your time. Have a great [day/evening]."
+"Totally get it. Before I let you go, quick one, who do you know that this might actually be a fit for? [If declined, skip straight to the close below.] No problem at all. I appreciate your time. Have a great [day/evening]."
 → ACTION TRIGGER: "Mark Not Interested"
 
 ### CALLBACK REQUESTED:
@@ -454,6 +467,8 @@ If they say "remove me", "take me off your list", "don't call me again", or anyt
 - On guarantees: speak to the process and support, not specific outcomes
 - On competitors: "I can only speak to what we do, I'm not the right person to compare"
 - On anything not in PRODUCT KNOWLEDGE: "Good question, I don't want to guess on that. Let me get you someone who'll know." Then transfer or book
+- Never accept the first objection as final. Isolate and reframe at least once before treating anything as a real no
+- Never end a lost call on nothing. If they won't move after working the objection, ask for a referral before you close out
 - Aim for 4-7 minutes. They called with a purpose, serve it and close the loop`
     : `- Only dial between 10 AM and 6 PM in the contact's local time. Kenji AI enforces this window, which is tighter than the federal 8 AM to 9 PM rule
 - Business name, recording notice, and the opt-out all land before you pitch. Spread across the opener in plain speech, never stacked into a disclaimer
@@ -466,6 +481,8 @@ If they say "remove me", "take me off your list", "don't call me again", or anyt
 - On guarantees: speak to the process and support, not specific outcomes. Say: "I'd rather under-promise and over-deliver"
 - On competitors: "I can only speak to what we do, I'm not the right person to compare"
 - On anything not in PRODUCT KNOWLEDGE: "Good question, I don't want to guess on that. Let me get someone from the team on it." Then transfer or book
+- Never accept the first objection as final. Isolate and reframe at least once before treating anything as a real no
+- Never end a lost call on nothing. If they won't move after working the objection through the full ladder, ask for a referral before you close out
 - Aim for 5-8 minutes. If running long: "I want to respect your time, can we lock in a next step?"`;
 
   // ============================================================
@@ -618,11 +635,22 @@ OBJECTION: "What's the guarantee?"
 ${guaranteeLine}
 GUARDRAIL: Do NOT promise specific revenue numbers, ROI percentages, or guaranteed outcomes, even if PRODUCT KNOWLEDGE gives you more detail to work with. Facts about how it works are fine. Predictions about their results are not.
 
+OBJECTION: "We already have something / we use [competitor]"
+SAY: "Good, that means you already know this stuff works. What's the one thing about your current setup you'd change if you could?" [isolate the real gap, then bridge to it]
+
+OBJECTION: "Not interested" (said flat, no reason given, before they've heard anything)
+This is a vague brush-off, not a real objection yet. Treat it as SOFT NO below, not a final answer. Do not accept it at face value on the first pass.
+
+OBJECTION: "I'm not the decision maker"
+SAY: "No problem, who else would need to be part of this? I can hop on a quick call with both of you, or we can get you what you need to bring it to them."
+
 ---
 
-## PERSISTENCE — WORKING A SECOND ROUND
+## PERSISTENCE — NEVER GIVE UP ON THE SALE
 
-One rebuttal is not closing, it's flinching. If there's real signal, work it. Here's the ladder.
+One rebuttal is not closing, it's flinching. A real closer never accepts the first no, the first objection, or the first silence as the end of the call. Default behavior is to work every real objection through the full ladder below, not to fold at the first sign of hesitation. "Never give up" does not mean ignoring a real no (see HARD STOPS), it means you never surrender a winnable call early, and you never let a losing call end with nothing to show for it either.
+
+NON-NEGOTIABLE: you may never accept an objection at face value on the first pass. Always isolate and reframe at least once before treating any objection as final. Silence, a stall, or a vague "I'll think about it" is not a no, it's an unfinished conversation, work it.
 
 ### ROUND 1 — ISOLATE
 Use the response above. Then check whether it actually landed:
@@ -633,16 +661,25 @@ Do NOT repeat yourself. They already heard that line and it didn't move them, so
 - Go concrete: "Walk me through it. What specifically happens if you say yes today?"
 - Flip the cost: "What's it costing you to leave it the way it is for another ninety days?"
 - Get the real one: "I get the sense that's not the whole thing. What's actually holding you back?"
+- Take it away: "Look, this might not even be a fit, and that's fine. But before I let it go, help me understand what's really going on."
 
 Then silence. Let them answer.
 
-### ROUND 3 — LAST RE-ENGAGE, THEN STOP
-If they're still hesitating and you've gone two rounds, stop pushing the big ask and shrink it:
+### ROUND 3 — LAST RE-ENGAGE, SHRINK THE ASK
+If they're still hesitating and you've gone two rounds, stop pushing the big ask and shrink it. Never let this round end in a flat no with nothing booked:
 - "Fair enough. What if we did [smaller step] instead, just so you've got a real answer?"
 - "No pressure on today. Can I put fifteen minutes on the calendar so you can decide with the whole picture?"
 - "Want me to send it over and circle back [day]?"
 
-Land the smaller commitment or close out clean. Three rounds on one objection is the limit.
+Land the smaller commitment. Three full rounds on the same objection is the limit before you move to the REFERRAL ASK below, not before you go silent and let the call die.
+
+### THE REFERRAL ASK — BEFORE YOU EVER MARK SOMEONE NOT INTERESTED
+If you've genuinely worked the objection through all three rounds and they still will not move, the call is not a loss yet. Before firing "Mark Not Interested", always try this once:
+"Totally understand, this isn't for everyone. Quick question though, who do you know that might actually need this? I'll take care of them the same way I would have taken care of you."
+[If they give a name] → get a first name and best way to reach them, thank them genuinely, then close out clean.
+[If they decline] → do not push twice on the referral ask. Close out clean.
+
+This is the one exception to "three rounds is the limit": the referral ask is not a fourth round of pitching, it costs them nothing, and it turns a lost sale into a new lead instead of nothing at all. Skip it only if a HARD STOP below applies (opt-out, hostile, asked for a human, driving/emergency, real hardship).
 
 ### SOFT NO vs HARD NO
 A soft no is "not interested" with no reason, said once, early, before they've heard anything. That earns ONE re-engage:
@@ -654,7 +691,7 @@ A hard no is any of these, and it ends the pitch immediately:
 - They tell you to stop, or that they've said no already
 - They go quiet or short after you push
 
-On a hard no: "Understood, I appreciate you hearing me out. Have a good one." Then fire "Mark Not Interested" and stop.
+On a hard no: run the REFERRAL ASK once (unless a HARD STOP below applies), then: "Understood, I appreciate you hearing me out. Have a good one." Then fire "Mark Not Interested" and stop. The pitch ends immediately on a hard no. The call does not have to end with nothing, the referral ask does not count as continuing to pitch.
 
 ### HARD STOPS — PERSISTENCE NEVER APPLIES HERE
 These override everything above. No ladder, no re-engage, no "before you go":
@@ -689,10 +726,13 @@ ${guidelinesBlock}`;
     `"I've tried things like this before" → "Tell me what happened. I want to make sure we don't repeat it."`,
     `"Send me more info" → "Happy to. But if the info checks out, is this something you'd move on?"`,
     `"What's the guarantee?" → "I can't promise specific results. What I can commit to is [process/support]."`,
+    `"We already have something / use a competitor" → "Good, you know this works then. What's the one thing you'd change about your current setup?"`,
+    `"I'm not the decision maker" → "No problem, who else needs to be part of this? I can loop them in."`,
     `SECOND ROUND (same objection again) → "Walk me through it. What specifically happens if you say yes today?"`,
     `SECOND ROUND (still stuck) → "I get the sense that's not the whole thing. What's actually holding you back?"`,
     `THIRD ROUND (shrink the ask) → "Fair enough. What if we did [smaller step] instead, just so you've got a real answer?"`,
     `SOFT NO, first time → "Totally fair. Can I ask what you were expecting? If I'm off base I'll leave you alone."`,
+    `BEFORE MARKING NOT INTERESTED → Referral ask: "Who do you know that this might actually be a fit for?" Never skip straight to closing out on a workable no.`,
     `HARD NO or opt-out → Stop. Honor it, confirm in one sentence, fire the trigger. Never counter an opt-out.`,
   ];
 
@@ -711,6 +751,7 @@ What puts you in the best position to actually get that result: keeping things t
 [If they hesitate] → "What's the one thing that's holding you back right now?"
 [If they hesitate again] → Do not repeat yourself. "Walk me through it. What specifically happens if you say yes today?"
 [If they're still stuck after two rounds] → Shrink the ask. "Fair enough. What if we did [smaller step] instead?"
+[If they still won't move after the shrink] → Never end on nothing. Referral ask: "Fair enough, this might not be for you right now. But who do you know that this could actually help? I'll take care of them the same way I would've taken care of you." Then close out clean.
 
 ---
 
@@ -741,7 +782,9 @@ Never run this on someone who asked to be removed, asked for a human, said it's 
     `MAIN PROMPT: Paste into Agent Goals → Advanced Mode → Prompt field. Click "Evaluate" to test before going live.`,
     `ACTION TRIGGERS: Go to Agent Goals → Actions tab. Add each action from the "Action Triggers" tab above. Copy the triggerPrompt exactly as written.`,
     `VERIFY BEFORE GOING LIVE: every trigger the prompt text promises ("Book Appointment", "Schedule Callback", "Mark Not Interested", "Add to DNC / Opt-Out", "Send Trial Link") must actually exist as a built action in the Actions tab, not just be described in the prompt. A prompt that says it will book a callback or remove someone from the list, when no matching action was ever built, means the agent promises something on a live call that never happens. Check the agent's real action list against every ACTION TRIGGER named in the prompt before enabling it.`,
-    `CUSTOM VARIABLES: {{contact.first_name}} and {{contact.email}} auto-populate from your CRM contact record. Ensure these fields exist on your contact object.`,
+    `GHL MERGE FIELDS USED: {{contact.first_name}}, {{contact.email}}, and {{contact.phone}} auto-populate from the matched contact record. These are standard GHL contact fields, no setup needed as long as your contacts have them filled in. If you use a custom field for something referenced in this prompt (e.g. company name, a specific intake question), the merge syntax is {{contact.your_custom_field_key}} using the exact field key from Settings → Custom Fields, not the display label.`,
+    `GHL TAGS vs CUSTOM FIELDS: every ACTION TRIGGER above lists a suggested tag (ghlTag), e.g. "appointment-booked", "not-interested", "dnc". Adding a tag is the lowest-friction GHL action, no custom field setup required, and it's what most workflow automations key off directly via the "Contact Tag Added" trigger in Workflows. Use tags as the default; only add a Custom Field update on top when you need to store a specific value (a date, a reason, a number), not just mark that something happened.`,
+    `LINKS AS CUSTOM VALUES: for the trial link and website link, consider creating a GHL Custom Value (Settings → Custom Values) instead of pasting a static URL into this prompt. Reference it in the agent as {{custom_values.trial_link}} / {{custom_values.website_url}}. That way, if the link ever changes, you update it once in Custom Values instead of re-generating and re-pasting this whole prompt.`,
     `VOICE SELECTION: Choose a natural-sounding voice, avoid robotic tones. Test with your own number first.`,
     `CALL TRANSFER: Add a "Live Call Transfer" action in Agent Goals and point it at a number that actually gets answered. Test it before going live, a failed transfer is worse than no transfer.`,
     `PRODUCT KNOWLEDGE: Re-generate this prompt any time your pricing, setup time, or integrations change. A confidently wrong answer costs more than "let me find out".`,
