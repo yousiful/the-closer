@@ -215,10 +215,17 @@ export function generateKenjiAIPrompt(
   // INITIAL GREETING (separate Kenji AI field, static text, said
   // before any of the agent's own reasoning kicks in — so it has to
   // read naturally whether this call was placed or answered, no
-  // branching is possible here). Identify who you are and who you're
-  // with, ask an open, low-commitment question. Works cold and warm.
+  // branching is possible here). Identify who you are AND why you're
+  // calling in the same breath — real production call logs show a
+  // generic "how can I help you today?" opener on an outbound cold
+  // call produces dead air and a hangup in under 10 seconds, because
+  // it never gives the person a reason to stay on the line. Leading
+  // with identity + reason is what actually keeps people talking,
+  // confirmed by comparing real short (dead-air) vs long (booked)
+  // call transcripts. Still reads fine on an inbound answer, it just
+  // adds a touch more context than strictly needed there.
   // ============================================================
-  const initialGreeting = `Hey, this is ${personality.name} with ${business.businessName}. How can I help you today?`;
+  const initialGreeting = `Hey, this is ${personality.name} with ${business.businessName}, calling because you showed interest in ${topic}. Got a quick minute?`;
 
   // ============================================================
   // ACTION TRIGGERS — precise triggerPrompt strings for Kenji AI.
@@ -255,7 +262,7 @@ export function generateKenjiAIPrompt(
       name: "Extract Contact Info",
       triggerPrompt: `When the contact's name, email, or time zone has not yet been confirmed, or when you need to send a confirmation, link, or follow-up to them, or before booking anything that needs their local time.`,
       action: "Update Standard Fields (First Name / Email / Time Zone) on the contact record",
-      notes: `Ask: "Just to make sure I have the right info, what's the best email to send that to?" and, if {{contact.timezone}} is blank, "And what time zone are you in, or what city are you calling from?" Extract and save both. If {{contact.phone}} is already populated, confirm it's still good rather than asking again. Save the time zone in standard IANA format (e.g. "America/Chicago") if you can infer it from what they say, GHL's standard Time Zone field on the contact record, not a custom field.`,
+      notes: `Ask: "Just to make sure I have the right info, what's the best email to send that to?" and, if {{contact.timezone}} is blank, "And what time zone are you in, or what city are you calling from?" Extract and save both. If {{contact.phone}} is already populated, confirm it's still good rather than asking again. Save the time zone in standard IANA format (e.g. "America/Chicago") if you can infer it from what they say, GHL's standard Time Zone field on the contact record, not a custom field. NAME SAFEGUARD (from a real production bug): when setting up this action's underlying Data Extraction in Kenji AI, its description must explicitly say "the CALLER'S own first and last name, exactly as they state it themselves, do NOT extract the agent's own name or any name the agent says out loud." Without that line, a call where the contact never says their own name but does ask the agent's name can save the AGENT's name onto the contact record instead, which then shows up on the booked calendar event too.`,
     },
     {
       name: "Send Trial Link",
@@ -436,9 +443,10 @@ STEP 1 — OPEN
 OUTBOUND: "...you'd shown some interest in ${topic}, still on your radar?" No → "Can I ask what changed?", work any real signal once via PERSISTENCE, otherwise close clean.
 INBOUND: "So what made you reach out today?" Listen, don't pitch over them. Direct question about ${business.productService} → answer from PRODUCT KNOWLEDGE, then ask what's driving it now. Existing customer → route (ACTION TRIGGER "Route Existing Customer (Inbound Only)"), don't pitch.
 
-STEP 2 — DIAGNOSE
-OUTBOUND: 2-3 short questions — what's going on with ${business.industry}, what they've tried, what it'd mean to ${business.mainBenefit}. Listen more than you talk.
-INBOUND: 2-3 tight questions, same idea, they're already interested so keep it short, they'll hang up on six questions.
+STEP 2 — DIAGNOSE (pain funnel: surface → impact → feeling. "What/how" questions only, never yes/no)
+OUTBOUND: "What's the biggest challenge with ${business.industry} right now?" → "What's that actually costing you?" → "How's it feel dealing with that this long?" 2-3 max, listen more than you talk.
+INBOUND: same funnel, compressed to 1-2 questions, they're already interested, six questions loses them.
+Mirror their last 2-3 words back as a question when something's worth digging into ("...costing you a lot?") instead of jumping straight to your next line — gets them to say more without you asking another question.
 
 STEP 3 — BRIDGE
 "So based on what you're telling me, [restate their pain], that's exactly what ${business.productService} is built for: ${business.mainBenefit}." Under 3 sentences, bridge not pitch.
@@ -471,12 +479,16 @@ URGENCY: OUTBOUND — frame around what staying put costs them, never your pipel
 
 ## OBJECTIONS — BURN THE BOATS
 
+Label the emotion before you respond, don't jump straight to a rebuttal: "Sounds like [price/timing/trust] is the real sticking point here" — naming it right lowers their guard before you isolate it.
+
 ${business.commonObjections
       .split(",")
       .map((obj) => obj.trim())
       .filter(Boolean)
       .map((obj) => `"${obj}" → "I hear you. Is that the only thing, or is there something else?" [isolate, then use the frame below]`)
       .join("\n")}
+
+SKEPTICAL / GUARDED (won't engage, one-word answers, sounds suspicious of being sold to): negative reverse instead of pushing harder — "Honestly, this might not even be a fit for you. What made you take the call in the first place?" Disarms defensiveness by removing the pressure, gets them talking instead of stonewalling.
 
 BURN THE BOATS CLOSE (payment split / hesitation):
 ${BURN_THE_BOATS_OBJECTION}
@@ -520,7 +532,7 @@ ${isQualifyAndTransfer
       ? `QUALIFIED: "Based on everything you've told me, this is exactly what we're looking for, let me get you connected right now" → ACTION TRIGGER "Qualified — Transfer to Sales". Not answered → "Transfer Failed — SMS/Email Follow-Up".
 NOT QUALIFIED: "Based on what you've told me, I don't think this is the right fit right now, and I don't want to waste your time." [offer a real alternative if you have one] → ACTION TRIGGER "Not Qualified", no transfer, no fake maybe.
 `
-      : ""}BOOKED: "Perfect, you're all set for [date/time]. Keep an eye on your texts, I'm sending your confirmation right now." → ACTION TRIGGER "Book Appointment". Confirmation goes by text, say texts not email.
+      : ""}BOOKED: "Perfect, {{contact.first_name}}, you're all set for [date/time]. Keep an eye on your texts, I'm sending your confirmation right now." → ACTION TRIGGER "Book Appointment". Confirmation goes by text, say texts not email. Always say their actual name here, not just "perfect" — a real production bug traced through call transcripts showed that skipping it, on a call where the caller never states their own name out loud, means the ONLY clearly-spoken name in the whole call ends up being yours, and the booking system can title the calendar event with your name instead of theirs.
 WANTS A PERSON: "Absolutely, let me get you to someone right now, one moment." → ACTION TRIGGER "Transfer to Human", no pitch first. Not answered → "Transfer Failed — SMS/Email Follow-Up".
 IF INBOUND, EXISTING CUSTOMER: "Got it, you're already with us, let me get you to the right person." → ACTION TRIGGER "Route Existing Customer (Inbound Only)".
 IF OUTBOUND, HESITANT NOT A HARD NO: never end with no next step. "No pressure, let's pencil in a quick ten minutes in a couple days so I'm not bugging you today?" Agreed → ACTION TRIGGER "Book Appointment" (short follow-up). Declined → NOT INTERESTED below.
@@ -539,6 +551,8 @@ SEND TRIAL/DEMO: "I'll send that over right now, you should get it in about 30 s
 - Speak numbers as words, never symbols
 - Confirm name and email before booking or sending anything
 - Never accept the first objection as final, isolate and reframe once first
+- Let them talk more than you, aim for 70-80% their words, guide with questions instead of monologuing the pitch
+- Before re-pushing a close, gut-check silently: are they unsure about the offer, about you, or about the company? Address that specific doubt, don't just repeat the ask
 - Confirmation texts, not email, for bookings. For everything else you're sending, stay channel-neutral ("I'll get that over") unless you actually know the real channel
 - Keep energy and pace consistent start to finish, don't flatten out as the call goes on
 - Never end a lost call on nothing, ask for a referral before you close out
@@ -550,6 +564,8 @@ SEND TRIAL/DEMO: "I'll send that over right now, you should get it in about 30 s
   // OBJECTION HANDLERS (for display)
   // ============================================================
   const objectionHandlers = [
+    `LABEL FIRST → "Sounds like [price/timing/trust] is the real sticking point here." Name the emotion before you respond, it lowers their guard before you isolate.`,
+    `SKEPTICAL / GUARDED (won't engage, sounds suspicious) → Negative reverse: "Honestly, this might not even be a fit for you. What made you take the call?" Removes pressure, gets them talking.`,
     `"It's too expensive" → "Compared to what? What does staying where you are cost you right now?"`,
     `"I need to think about it" → "Totally. What specifically? There's usually one thing holding people back."`,
     `"I need to talk to my partner" → "Of course. But setting them aside, what do YOU think? In or out?"`,
@@ -606,6 +622,8 @@ This applies the same way on inbound and outbound. Direction changes the opening
   // SETUP NOTES
   // ============================================================
   const setupNotes = [
+    `AI CREDIT / TOKEN COST: only the Main Prompt and Initial Greeting actually get sent to the AI on every single call, so their length is what drives your per-call AI credit cost, not this reference page. Keep PRODUCT KNOWLEDGE, COMMON OBJECTIONS, and QUALIFYING CRITERIA as tight bullet points, not paragraphs — every extra sentence you type here gets billed on every call the agent takes, all day, every day. This generator writes each section as densely as it can while keeping it real spoken language, no filler.`,
+    `SALES METHODOLOGY BAKED IN: pain-funnel diagnosis (surface → impact → feeling), calibrated "what/how" questions, mirroring and labeling before responding to an objection, a negative-reverse move for guarded/skeptical prospects, an internal certainty check before re-pushing a close, and the signature Batman "Burn the Boats" close for real hesitation. These are drawn from established closing frameworks (NEPQ, tactical empathy, Sandler, Straight Line), not invented from scratch — real, proven techniques experienced closers actually use, not just Burn the Boats repeated for everything.`,
     `ONE AGENT, BOTH DIRECTIONS: this prompt is written to work correctly whether Kenji AI routes a call to this agent as inbound or outbound, no direction toggle needed on your end for the prompt itself. If your GHL setup still requires selecting an Agent Direction on the agent record, attach this same agent/prompt to both your inbound number and your outbound calling workflow.`,
     `INITIAL GREETING: Paste into Agent Details → "Initial Greeting Message" (NOT in the main prompt field). It's written to sound natural on either kind of call.`,
     `MAIN PROMPT: Paste into Agent Goals → Advanced Mode → Prompt field. Click "Evaluate" to test before going live. Test at least once as a call you place and once as a call you receive, since the prompt branches on that.`,

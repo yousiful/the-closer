@@ -16,7 +16,13 @@ import PromptModal from "@/components/PromptModal";
 import { generateKenjiAIPrompt, TONE_OPTIONS, CALL_PURPOSE_OPTIONS, SPECIALTY_OPTIONS, type BusinessInfo, type CloserPersonality, type KenjiAIPromptPackage } from "@/lib/generatePrompt";
 import { scrapeWebsite } from "@/lib/scrapeWebsite";
 
-const TOTAL_STEPS = 4;
+// Shortened from a 4-step wizard (Business Info -> Edit & Refine -> Closer
+// Skills -> Prompt) to 2 steps. The old "Edit & Refine" step re-displayed the
+// exact same fields as step 1 with nothing new to add, pure busywork if step
+// 1 was already filled out. Closer Skills is small enough (a name, a tone
+// picker, a handful of checkboxes) to live on the same scrollable page as
+// business info instead of its own click-through.
+const TOTAL_STEPS = 2;
 
 const DEFAULT_BUSINESS: BusinessInfo = {
   businessName: "",
@@ -110,12 +116,7 @@ export default function Home() {
   const [isScraping, setIsScraping] = useState(false);
   const [modal, setModal] = useState<{ open: boolean; title: string; badge?: string; subtitle?: string; content: string; copyKey: string; tip?: string } | null>(null);
 
-  const completeStep = (step: number) => {
-    setCompletedSteps((prev) => Array.from(new Set([...prev, step])));
-    setCurrentStep(step + 1);
-  };
-
-  const handleBusinessNext = () => {
+  const handleGenerate = () => {
     if (!business.businessName.trim()) {
       toast.error("Please enter your business name.");
       return;
@@ -124,10 +125,6 @@ export default function Home() {
       toast.error("Please describe what you sell.");
       return;
     }
-    completeStep(1);
-  };
-
-  const handleRefineNext = () => {
     if (!business.targetCustomer.trim()) {
       toast.error("Who is your ideal customer?");
       return;
@@ -136,15 +133,12 @@ export default function Home() {
       toast.error("What's the main transformation you deliver?");
       return;
     }
-    completeStep(2);
-  };
-
-  const handleGenerate = () => {
     if (!personality.name.trim()) {
       toast.error("Give your closer a name.");
       return;
     }
-    completeStep(3);
+    setCompletedSteps((prev) => Array.from(new Set([...prev, 1])));
+    setCurrentStep(2);
     const result = generateKenjiAIPrompt(business, personality);
     setGeneratedPrompt(result);
   };
@@ -216,10 +210,8 @@ export default function Home() {
               currentStep={currentStep}
               completedSteps={completedSteps}
               steps={[
-                { id: 1, label: "Business Info", sublabel: "Tell us about your offer" },
-                { id: 2, label: "Edit & Refine", sublabel: "Dial in the details" },
-                { id: 3, label: "Closer Skills", sublabel: "Customize your agent" },
-                { id: 4, label: "Kenji Prompt", sublabel: "Ready to deploy" },
+                { id: 1, label: "Business & Closer Setup", sublabel: "Everything in one pass" },
+                { id: 2, label: "Kenji Prompt", sublabel: "Ready to deploy" },
               ]}
             />
           </div>
@@ -227,11 +219,11 @@ export default function Home() {
         {/* Main Content */}
         <div className="lg:col-span-3">
           {/* ================================================================
-              STEP 1 — Business Info
+              STEP 1 — Business Info + Closer Skills, one combined setup
               ================================================================ */}
           {currentStep === 1 && (
             <div className="step-enter">
-              <StepHeader icon={<FileText size={20} />} step={1} title="Tell us about your business" subtitle="Drop a URL, paste your pitch, or enter manually" />
+              <StepHeader icon={<FileText size={20} />} step={1} title="Tell us about your business and your closer" subtitle="Drop a URL, paste your pitch, or enter manually — one pass, no re-editing the same fields twice" />
 
               <div className="bg-[#D4A017]/8 border border-[#D4A017]/20 rounded-lg p-4 mb-6">
                 <p className="text-xs text-[#D4A017] font-semibold mb-1">⚡ One prompt, works on inbound and outbound</p>
@@ -402,7 +394,7 @@ export default function Home() {
                         className="bg-white/5 border-white/10 text-white placeholder:text-white/30 min-h-32"
                       />
                       <p className="text-xs text-white/40 mt-1.5">
-                        This becomes the agent's PRODUCT KNOWLEDGE section. The more specific you are here, the less it deflects. It still won't promise results.
+                        This becomes the agent's PRODUCT KNOWLEDGE section. Keep it to short, concrete bullets — every line here gets sent to the AI on every single call, so tighter facts here mean lower AI credit cost per call, not just a cleaner form. The more specific you are, the less it deflects, and it still won't promise results.
                       </p>
                     </div>
 
@@ -443,160 +435,11 @@ export default function Home() {
                 )}
               </div>
 
-              <div className="flex gap-3">
-                <Button onClick={handleBusinessNext} className="flex-1 bg-[#D4A017] text-[#0A0B14] hover:bg-[#D4A017]/90 font-semibold py-3">
-                  Next: Edit & Refine
-                </Button>
+              {/* CLOSER SKILLS — merged in from the old standalone step 3 */}
+              <div className="mb-2">
+                <h3 className="text-lg font-bold text-white mb-1">Closer skills</h3>
+                <p className="text-xs text-white/40 mb-4">Customize your agent's name and personality</p>
               </div>
-            </div>
-          )}
-
-          {/* ================================================================
-              STEP 2 — Edit & Refine
-              ================================================================ */}
-          {currentStep === 2 && (
-            <div className="step-enter">
-              <StepHeader icon={<FileText size={20} />} step={2} title="Edit & refine" subtitle="Dial in the details" />
-
-              <div className="space-y-4 bg-white/3 border border-white/10 rounded-xl p-6 mb-8">
-                <div>
-                  <Label className="text-white/70 text-xs font-semibold mb-2 block">BUSINESS NAME</Label>
-                  <Input
-                    value={business.businessName}
-                    onChange={(e) => setBusiness({ ...business, businessName: e.target.value })}
-                    className="bg-white/5 border-white/10 text-white"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-white/70 text-xs font-semibold mb-2 block">INDUSTRY</Label>
-                    <Input
-                      value={business.industry}
-                      onChange={(e) => setBusiness({ ...business, industry: e.target.value })}
-                      className="bg-white/5 border-white/10 text-white"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-white/70 text-xs font-semibold mb-2 block">PRICING</Label>
-                    <Input
-                      value={business.price}
-                      onChange={(e) => setBusiness({ ...business, price: e.target.value })}
-                      className="bg-white/5 border-white/10 text-white"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label className="text-white/70 text-xs font-semibold mb-2 block">WHAT YOU SELL</Label>
-                  <Textarea
-                    value={business.productService}
-                    onChange={(e) => setBusiness({ ...business, productService: e.target.value })}
-                    className="bg-white/5 border-white/10 text-white min-h-16"
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-white/70 text-xs font-semibold mb-2 block">TARGET CUSTOMER</Label>
-                  <Input
-                    value={business.targetCustomer}
-                    onChange={(e) => setBusiness({ ...business, targetCustomer: e.target.value })}
-                    className="bg-white/5 border-white/10 text-white"
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-white/70 text-xs font-semibold mb-2 block">MAIN BENEFIT / TRANSFORMATION</Label>
-                  <Input
-                    value={business.mainBenefit}
-                    onChange={(e) => setBusiness({ ...business, mainBenefit: e.target.value })}
-                    className="bg-white/5 border-white/10 text-white"
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-white/70 text-xs font-semibold mb-2 block">COMMON OBJECTIONS (comma-separated)</Label>
-                  <Textarea
-                    value={business.commonObjections}
-                    onChange={(e) => setBusiness({ ...business, commonObjections: e.target.value })}
-                    className="bg-white/5 border-white/10 text-white min-h-16"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-white/70 text-xs font-semibold mb-2 block">TRIAL LINK</Label>
-                    <Input
-                      value={business.trialLink}
-                      onChange={(e) => setBusiness({ ...business, trialLink: e.target.value })}
-                      className="bg-white/5 border-white/10 text-white"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-white/70 text-xs font-semibold mb-2 block">GUARANTEE POLICY</Label>
-                    <Input
-                      value={business.guaranteePolicy}
-                      onChange={(e) => setBusiness({ ...business, guaranteePolicy: e.target.value })}
-                      className="bg-white/5 border-white/10 text-white"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label className="text-white/70 text-xs font-semibold mb-2 block">PRODUCT KNOWLEDGE / FAQ (one fact per line)</Label>
-                  <Textarea
-                    value={business.productKnowledge}
-                    onChange={(e) => setBusiness({ ...business, productKnowledge: e.target.value })}
-                    className="bg-white/5 border-white/10 text-white min-h-32"
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-white/70 text-xs font-semibold mb-2 block">WHAT THIS CALL SHOULD ACCOMPLISH</Label>
-                  <Select value={business.callPurpose} onValueChange={(value: any) => setBusiness({ ...business, callPurpose: value })}>
-                    <SelectTrigger className="bg-white/5 border-white/10 text-white">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#1a1b2e] border-white/10">
-                      {CALL_PURPOSE_OPTIONS.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value} className="text-white">
-                          {opt.icon} {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {business.callPurpose === "qualify_and_transfer" && (
-                  <div>
-                    <Label className="text-white/70 text-xs font-semibold mb-2 block">QUALIFYING CRITERIA (one per line)</Label>
-                    <Textarea
-                      value={business.qualifyingCriteria}
-                      onChange={(e) => setBusiness({ ...business, qualifyingCriteria: e.target.value })}
-                      className="bg-white/5 border-white/10 text-white min-h-24"
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-3">
-                <Button onClick={() => setCurrentStep(1)} className="flex-1 bg-white/10 text-white hover:bg-white/20 font-semibold py-3">
-                  Back
-                </Button>
-                <Button onClick={handleRefineNext} className="flex-1 bg-[#D4A017] text-[#0A0B14] hover:bg-[#D4A017]/90 font-semibold py-3">
-                  Next: Closer Skills
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* ================================================================
-              STEP 3 — Closer Personality
-              ================================================================ */}
-          {currentStep === 3 && (
-            <div className="step-enter">
-              <StepHeader icon={<FileText size={20} />} step={3} title="Closer skills" subtitle="Customize your agent" />
-
               <div className="space-y-4 bg-white/3 border border-white/10 rounded-xl p-6 mb-8">
                 <div>
                   <Label className="text-white/70 text-xs font-semibold mb-2 block">CLOSER NAME *</Label>
@@ -655,9 +498,6 @@ export default function Home() {
               </div>
 
               <div className="flex gap-3">
-                <Button onClick={() => setCurrentStep(2)} className="flex-1 bg-white/10 text-white hover:bg-white/20 font-semibold py-3">
-                  Back
-                </Button>
                 <Button onClick={handleGenerate} disabled={isGenerating} className="flex-1 bg-[#D4A017] text-[#0A0B14] hover:bg-[#D4A017]/90 font-semibold py-3">
                   {isGenerating ? <Loader2 className="animate-spin mr-2" size={16} /> : "Generate Your Kenji Prompt"}
                 </Button>
@@ -666,13 +506,13 @@ export default function Home() {
           )}
 
           {/* ================================================================
-              STEP 4 — Generated Kenji AI Prompt (ALL SECTIONS VISIBLE AT ONCE)
+              STEP 2 — Generated Kenji AI Prompt (ALL SECTIONS VISIBLE AT ONCE)
               ================================================================ */}
-          {currentStep === 4 && (
+          {currentStep === 2 && (
             <div className="step-enter">
               <StepHeader
                 icon={<FileText size={20} />}
-                step={4}
+                step={2}
                 title="Your Kenji AI closer is ready"
                 subtitle="Works on inbound and outbound calls. All sections visible below, copy what you need"
               />
@@ -736,7 +576,7 @@ export default function Home() {
                         <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">Kenji Field</span>
                         <p className="text-sm font-semibold text-white/80">Agent Details → Initial Greeting Message</p>
                       </div>
-                      <p className="text-xs text-white/40 mb-4">This is the FIRST thing the AI says when the call connects. Paste this into the "Initial Greeting Message" field — NOT the main prompt. Written to sound natural whether the agent placed the call or answered it.</p>
+                      <p className="text-xs text-white/40 mb-4">This is the FIRST thing the AI says when the call connects. Paste this into the "Initial Greeting Message" field — NOT the main prompt. Leads with identity AND the reason for the call, real call transcripts show a generic "how can I help you today?" opener on a cold outbound call loses people in under 10 seconds.</p>
                       <PromptBox
                         content={generatedPrompt.initialGreeting}
                         onCopy={() => handleCopy(generatedPrompt.initialGreeting, "greeting")}
@@ -766,7 +606,7 @@ export default function Home() {
                         <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#D4A017]/20 text-[#D4A017]">Action Triggers</span>
                         <p className="text-sm font-semibold text-white/80">Agent Goals → Actions Tab</p>
                       </div>
-                      <p className="text-xs text-white/40 mb-4">Copy each triggerPrompt exactly as written into Kenji AI's Actions tab. Includes both direction-specific opt-out triggers, the agent fires whichever matches how the call actually started.</p>
+                      <p className="text-xs text-white/40 mb-4">Copy each triggerPrompt exactly as written into Kenji AI's Actions tab. Includes both direction-specific opt-out triggers, the agent fires whichever matches how the call actually started. Add a real name-extraction action too (contactFieldId pointed at your standard First Name field) — a booking made before the caller's name is ever captured can end up titled with the agent's own name instead of theirs.</p>
                       <div className="space-y-3">
                         {generatedPrompt.actionTriggers.map((trigger, i: number) => (
                           <div key={i} className="bg-white/3 rounded-lg p-4 border border-white/5">
